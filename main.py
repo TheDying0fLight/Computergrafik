@@ -4,7 +4,8 @@ from auto1111sdk import civit_download, download_realesrgan, RealEsrganPipeline,
 from PIL import Image
 import torch
 
-if __name__ == '__main__':
+def test():
+# if __name__ == '__main__':
     # path = "stable-diffusion"
 
     # pipe = StableDiffusionPipeline(".\dreamshaper_8.safetensors")

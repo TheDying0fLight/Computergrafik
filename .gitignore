@@ -163,4 +163,4 @@ cython_debug/
 /StableDiffusion
 /stable-diffusion
 *.safetensors
-/astronaut_rides_horse.png
+*.png

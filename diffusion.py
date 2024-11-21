@@ -8,11 +8,21 @@ class diffuser():
         self.set_pipeline(model)
 
 
-    def generate(self, prompt, steps = 25, guidance = 7, batch_size = 1):
-        self.images = self.pipe(prompt * batch_size,
-                         num_inference_steps = steps,
-                         guidance_scale = guidance,
-                        ).images
+    def generate(self,
+                 prompt,
+                 steps = 25,
+                 guidance = 7,
+                 batch_size = 1,
+                 height = None,
+                 width = None):
+
+        self.images = self.pipe(
+            prompt * batch_size,
+            num_inference_steps = steps,
+            guidance_scale = guidance,
+            height = height,
+            width = width
+        ).images
         return self.images
 
 

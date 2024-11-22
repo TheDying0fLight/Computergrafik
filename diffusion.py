@@ -33,7 +33,6 @@ class diffuser():
         self.model = model
         self.pipe = DiffusionPipeline.from_pretrained(
             model,
-            # custom_pipeline="lpw_stable_diffusion",
             torch_dtype=torch.float16)
 
         self.pipe.enable_vae_slicing()

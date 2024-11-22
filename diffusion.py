@@ -19,7 +19,7 @@ class diffuser():
         generator = None if seed is None else torch.Generator("cuda").manual_seed(seed)
 
         self.images = self.pipe(
-            prompt * batch_size,
+            [prompt] * batch_size,
             num_inference_steps = steps,
             guidance_scale = guidance,
             height = height,
@@ -33,6 +33,7 @@ class diffuser():
         self.model = model
         self.pipe = DiffusionPipeline.from_pretrained(
             model,
+            # custom_pipeline="lpw_stable_diffusion",
             torch_dtype=torch.float16)
 
         self.pipe.enable_vae_slicing()
@@ -42,10 +43,10 @@ class diffuser():
 
     def get_grid(self):
         size = int(np.ceil(np.sqrt(len(self.images))))
-        return self.image_grid(self.images, size, size)
+        return self._image_grid_(self.images, size, size)
 
 
-    def image_grid(self, imgs, rows, cols):
+    def _image_grid_(self, imgs, rows, cols):
         w, h = imgs[0].size
         grid = Image.new('RGB', size=(cols*w, rows*h))
 

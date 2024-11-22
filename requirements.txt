@@ -28,6 +28,7 @@ nest-asyncio==1.6.0
 networkx==3.4.2
 numpy==1.24.1
 packaging==24.2
+pandas==2.2.3
 parso==0.8.4
 pillow==11.0.0
 platformdirs==4.3.6
@@ -36,7 +37,9 @@ protobuf==5.28.3
 psutil==6.1.0
 pure_eval==0.2.3
 Pygments==2.18.0
+pyparsing==3.2.0
 python-dateutil==2.9.0.post0
+pytz==2024.2
 pywin32==308
 PyYAML==6.0.2
 pyzmq==26.2.0
@@ -57,6 +60,7 @@ tqdm==4.67.0
 traitlets==5.14.3
 transformers==4.46.3
 typing_extensions==4.12.2
+tzdata==2024.2
 urllib3==2.2.3
 wcwidth==0.2.13
 zipp==3.21.0

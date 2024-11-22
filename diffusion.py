@@ -14,14 +14,17 @@ class diffuser():
                  guidance = 7,
                  batch_size = 1,
                  height = None,
-                 width = None):
+                 width = None,
+                 seed = None):
+        generator = None if seed is None else torch.Generator("cuda").manual_seed(seed)
 
         self.images = self.pipe(
             prompt * batch_size,
             num_inference_steps = steps,
             guidance_scale = guidance,
             height = height,
-            width = width
+            width = width,
+            generator = generator
         ).images
         return self.images
 

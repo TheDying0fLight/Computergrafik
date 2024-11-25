@@ -10,6 +10,7 @@ class diffuser():
 
     def generate(self,
                  prompt,
+                 negative_prompt = "",
                  steps = 25,
                  guidance = 7,
                  batch_size = 1,
@@ -24,7 +25,8 @@ class diffuser():
             guidance_scale = guidance,
             height = height,
             width = width,
-            generator = generator
+            generator = generator,
+            negative_prompt = negative_prompt
         ).images
         return self.images
 

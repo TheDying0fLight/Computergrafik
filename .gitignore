@@ -164,3 +164,4 @@ cython_debug/
 /stable-diffusion
 *.safetensors
 *.png
+/token.txt

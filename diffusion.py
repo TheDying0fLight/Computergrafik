@@ -33,7 +33,7 @@ class diffuser():
 
     def set_pipeline(self, model):
         self.model = model
-        self.pipe = DiffusionPipeline.from_pretrained(
+        self.pipe: DiffusionPipeline = DiffusionPipeline.from_pretrained(
             model,
             torch_dtype=torch.float16)
 

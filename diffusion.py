@@ -5,7 +5,7 @@ import numpy as np
 import os, pandas, torch
 from IPython.display import clear_output
 
-class diffuser():
+class Diffuser():
     def __init__(self, model = "stabilityai/stable-diffusion-xl-base-1.0"):
         self.set_model(model)
 
@@ -68,6 +68,7 @@ class diffuser():
         for i, img in enumerate(imgs): grid.paste(img, box=(i%cols*w, i//cols*h))
         return grid
 
+
     def generate_from_csv(self, csv_name: str, prompt_idx: str, name_idx: str, replace = False):
         split = str.partition(csv_name, ".")
         if split[-1] == "csv": csv_name = ".".join(csv_name[0:-1])
@@ -76,7 +77,7 @@ class diffuser():
         img_path = os.path.join(csv_name, str.split(self.pipe.config._name_or_path,"/")[-1])
         Path(img_path).mkdir(parents=True, exist_ok=True)
         for idx,prompt in idx_prompt:
-            path = os.path.join(img_path, f"{idx}.jpg")
+            path = os.path.join(img_path, f"{idx}.webp")
             if not replace and os.path.exists(path): continue
             self.generate(prompt, batch_size=4)
             img = self.get_grid()

@@ -9,7 +9,6 @@ class Diffuser():
     def __init__(self, model = "stabilityai/stable-diffusion-xl-base-1.0"):
         self.set_model(model)
 
-
     def generate(self,
                  prompt,
                  negative_prompt = "",
@@ -32,7 +31,6 @@ class Diffuser():
         ).images
         return self.images
 
-
     def set_model(self, model):
         if issubclass(type(model), DiffusionPipeline): self.pipe = model
         else:
@@ -45,7 +43,6 @@ class Diffuser():
         self.pipe.to("cuda")
         self.pipe.enable_model_cpu_offload()
 
-
     def optimized_sd3pipeline(self, path):
         pipe = StableDiffusion3Pipeline.from_pretrained(
             path,
@@ -55,11 +52,9 @@ class Diffuser():
         )
         return pipe
 
-
     def get_grid(self):
         size = int(np.ceil(np.sqrt(len(self.images))))
         return self._image_grid_(self.images, size, size)
-
 
     def _image_grid_(self, imgs, rows, cols):
         w, h = imgs[0].size
@@ -67,7 +62,6 @@ class Diffuser():
 
         for i, img in enumerate(imgs): grid.paste(img, box=(i%cols*w, i//cols*h))
         return grid
-
 
     def generate_from_csv(self, csv_name: str, prompt_idx: str, name_idx: str, replace = False):
         split = str.partition(csv_name, ".")

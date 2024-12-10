@@ -1,4 +1,4 @@
-from diffusers import AutoPipelineForText2Image, DiffusionPipeline, StableDiffusion3Pipeline
+from diffusers import AutoPipelineForText2Image, DiffusionPipeline, StableDiffusion3Pipeline, AutoencoderTiny
 from PIL import Image
 from pathlib import Path
 import numpy as np
@@ -50,6 +50,7 @@ class Diffuser():
             tokenizer_3=None,
             torch_dtype=torch.float16
         )
+        pipe.vae = AutoencoderTiny.from_pretrained("madebyollin/taesd3", torch_dtype=torch.float16)
         return pipe
 
     def get_grid(self):

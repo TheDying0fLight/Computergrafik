@@ -1,4 +1,3 @@
-import pytube
 from pyyoutube import Api
 from youtube_transcript_api import YouTubeTranscriptApi
 import json
@@ -48,7 +47,6 @@ class Youtube():
                 try:
                     v["caption"] = YouTubeTranscriptApi.get_transcript(v["id"])
                     added.append(v)
-                    amount -= 1
                 except Exception as e:
                     if verbose: print(e)
         return added
@@ -73,9 +71,7 @@ class Youtube():
             id = v["id"]
             path = Path(f"{self.path}/{id}.webp")
             if os.path.exists(path): continue
-
-            vid = pytube.YouTube(yt_str.format(id))
-            url = vid.thumbnail_url
+            url = v["snippet"]["thumbnails"]["maxres"]["url"]
             r = requests.get(url, stream=True)
             if r.status_code == 200:
                 path.parent.mkdir(parents=True, exist_ok=True)

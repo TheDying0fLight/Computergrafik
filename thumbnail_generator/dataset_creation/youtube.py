@@ -6,6 +6,7 @@ import os
 from PIL import Image
 from pathlib import Path
 from pytube.innertube import _default_clients
+from IPython.display import clear_output
 
 _default_clients["ANDROID_MUSIC"] = _default_clients["WEB"]
 yt_str = "https://www.youtube.com/watch?v={}"
@@ -16,15 +17,13 @@ class Youtube():
         self.videos = []
         if path is not None:
             try:
-                with open(f"{path}.json", "r") as f:
-                    self.videos = json.load(f)
+                with open(f"{path}.json", "r") as f: self.videos = json.load(f)
             except: pass
 
     def to_json(self, path = None):
         if not path is None: self.path = path
         if self.path is None: raise ValueError("A path has to be defined")
-        with open(f"{self.path}.json", "w") as f:
-            json.dump(self.videos, f)
+        with open(f"{self.path}.json", "w") as f: json.dump(self.videos, f)
 
     def get_popular(self, api_key = None, amount = 5) -> list:
         if api_key is not None: self.api = Api(api_key=api_key)
@@ -71,7 +70,10 @@ class Youtube():
             id = v["id"]
             path = Path(f"{self.path}/{id}.webp")
             if os.path.exists(path): continue
-            url = v["snippet"]["thumbnails"]["maxres"]["url"]
+            try: url = v["snippet"]["thumbnails"]["standard"]["url"]
+            except:
+                try: url = v["snippet"]["thumbnails"]["standard"]["url"]
+                except: url = v["snippet"]["thumbnails"]["high"]["url"]
             r = requests.get(url, stream=True)
             if r.status_code == 200:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -80,5 +82,9 @@ class Youtube():
                     shutil.copyfileobj(r.raw, f)
                 img = Image.open(path)
                 thumbnails.append(img)
-                if show: display(img)
+                if show:
+                    try:
+                        clear_output(wait=True)
+                        display(img)
+                    except: pass
         return thumbnails

@@ -1,16 +1,18 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # code to download and save the model from hugging face
-# tokenizer = AutoTokenizer.from_pretrained("stabilityai/stablelm-2-1_6b-chat")
+# Thanks to Gustavosta: https://huggingface.co/Gustavosta
+# tokenizer = AutoTokenizer.from_pretrained("Gustavosta/MagicPrompt-Stable-Diffusion")
 # model = AutoModelForCausalLM.from_pretrained(
-#  "stabilityai/stablelm-2-1_6b-chat",
+#  "Gustavosta/MagicPrompt-Stable-Diffusion",
 #  torch_dtype="auto")
-# tokenizer.save_pretrained("/path/to/model/tokenizer/")
-# model.save_pretrained("/path/to/model/model/")
+# tokenizer.save_pretrained("/model_config/tokenizer/")
+# model.save_pretrained("/model_config/model/")
 
 # load the downloaded model + tokenizer from a local path
-tokenizer = AutoTokenizer.from_pretrained("/path/to/model/tokenizer/") # TODO: upload the downloaded tokenizer for the model
-model = AutoModelForCausalLM.from_pretrained("/path/to/model/model/") # TODO: upload the downloaded model
+# Thanks to Gustavosta: https://huggingface.co/Gustavosta
+tokenizer = AutoTokenizer.from_pretrained("Gustavosta/MagicPrompt-Stable-Diffusion")
+model = AutoModelForCausalLM.from_pretrained("Gustavosta/MagicPrompt-Stable-Diffusion")
 
 def get_prompts(transcript: str = None) -> dict[str,str]:
     if transcript is None: transcript = example_transcript
@@ -22,7 +24,7 @@ def get_prompts(transcript: str = None) -> dict[str,str]:
 
     tokens_positive = model.generate(
         **inputs_positive,
-        max_new_tokens=1024,
+        max_new_tokens=77,
         temperature=0.5,
         top_p=0.95,
         do_sample=True)
@@ -33,7 +35,7 @@ def get_prompts(transcript: str = None) -> dict[str,str]:
 
     tokens_negative = model.generate(
         **inputs_negative,
-        max_new_tokens=1024,
+        max_new_tokens=77,
         temperature=0.5,
         top_p=0.95,
         do_sample=True)

@@ -76,8 +76,8 @@ class Diffuser():
             if not replace and os.path.exists(path): continue
             self.generate(prompt, batch_size=4)
             img = self.get_grid()
-            clear_output(wait=True)
             try:
+                clear_output(wait=True)
                 display(img)
             except: pass
             img.save(path)

@@ -115,7 +115,7 @@ class Youtube():
     #                 display(v["thumbnail_description"])
     #             except: pass
 
-    async def add_thumbnail_description(self, api_key, amount=15, show=False, requests_per_min=10, overwrite=False):
+    async def add_gemini_thumbnail_description(self, api_key, amount=15, show=False, requests_per_min=10, overwrite=False):
         async def generate_thumbnail_description(video):
             try:
                 video["thumbnail_description"]

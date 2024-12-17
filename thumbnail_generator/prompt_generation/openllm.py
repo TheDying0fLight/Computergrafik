@@ -1,19 +1,15 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from gemini import example_transcript
+# from transformers import AutoModelForCausalLM, AutoTokenizer
+from .gemini import example_transcript
 
 # code to download and save the model from hugging face
 # Thanks to Gustavosta: https://huggingface.co/Gustavosta
 # tokenizer = AutoTokenizer.from_pretrained("Gustavosta/MagicPrompt-Stable-Diffusion")
-# model = AutoModelForCausalLM.from_pretrained(
-#  "Gustavosta/MagicPrompt-Stable-Diffusion",
-#  torch_dtype="auto")
-# tokenizer.save_pretrained("/model_config/tokenizer/")
-# model.save_pretrained("/model_config/model/")
+# model = AutoModelForCausalLM.from_pretrained("Gustavosta/MagicPrompt-Stable-Diffusion")
+import torch
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 
-# load the downloaded model + tokenizer from a local path
-# Thanks to Gustavosta: https://huggingface.co/Gustavosta
-tokenizer = AutoTokenizer.from_pretrained("Gustavosta/MagicPrompt-Stable-Diffusion")
-model = AutoModelForCausalLM.from_pretrained("Gustavosta/MagicPrompt-Stable-Diffusion")
+tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-large")
+model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-large", device_map="auto", torch_dtype=torch.float16)
 
 def get_prompts(transcript: str = None) -> dict[str,str]:
     if transcript is None: transcript = example_transcript

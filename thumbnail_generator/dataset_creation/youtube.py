@@ -1,9 +1,9 @@
 from pyyoutube import Api
 from youtube_transcript_api import YouTubeTranscriptApi
 import json
-import requests, shutil
+import requests
+import shutil
 import os
-import asyncio
 import time
 from PIL import Image
 from pathlib import Path
@@ -22,10 +22,10 @@ class Youtube():
         if path is not None:
             try:
                 with open(f"{path}.json", "r") as f: self.videos = json.load(f)
-            except: pass
+            except Exception: pass
 
     def to_json(self, path = None):
-        if not path is None: self.path = path
+        if path is not None: self.path = path
         if self.path is None: raise ValueError("A path has to be defined")
         with open(f"{self.path}.json", "w") as f: json.dump(self.videos, f)
 
@@ -33,7 +33,7 @@ class Youtube():
         added = []
         if api_key is not None: self.api = Api(api_key=api_key)
         try: self.api
-        except: raise ValueError("A api_key has to be given at least once")
+        except Exception: raise ValueError("A api_key has to be given at least once")
         videos = self.api.get_videos_by_chart(chart="mostPopular", count=amount).to_dict()["items"]
         for video in videos:
             exists = False
@@ -51,16 +51,15 @@ class Youtube():
         for v in self.videos:
             if amount is not None and len(added) >= amount: break
             try: v["caption"]
-            except:
+            except Exception:
                 try:
                     v["caption"] = YouTubeTranscriptApi.get_transcript(v["id"])
                     added.append(v)
                     try:
                         clear_output(wait=True)
                         print(v["caption"])
-                    except: pass
-                except Exception as e:
-                    v["caption"] = None
+                    except Exception: pass
+                except Exception: v["caption"] = None
         return added
 
     # attempt to use pytube instead of YoutubeTranscriptApi
@@ -85,9 +84,9 @@ class Youtube():
             if os.path.exists(path): continue
             urls = v["snippet"]["thumbnails"]
             try: url = urls["standard"]["url"]
-            except:
+            except Exception:
                 try: url = urls["maxres"]["url"]
-                except: url = urls["high"]["url"]
+                except Exception: url = urls["high"]["url"]
             r = requests.get(url, stream=True)
             if r.status_code == 200:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -100,7 +99,7 @@ class Youtube():
                     try:
                         clear_output(wait=True)
                         display(img)
-                    except: pass
+                    except Exception: pass
         return thumbnails
 
     def add_gemini_thumbnail_description(self, api_key, amount=15, show=False, requests_per_min=10, overwrite=False):
@@ -116,11 +115,11 @@ class Youtube():
 
     def generate_thumbnail_description(self, video, show, overwrite, model, keyname, prompt):
         try: video["thumbnail_descriptions"]
-        except: video["thumbnail_descriptions"] = {}
+        except Exception: video["thumbnail_descriptions"] = {}
         try:
             video["thumbnail_descriptions"][keyname]
             if not overwrite: return -1
-        except: pass
+        except Exception: pass
         id = video['id']
         image_path = os.path.join(self.path, f"{id}.webp")
         try: image = Image.open(image_path)
@@ -137,4 +136,4 @@ class Youtube():
                 clear_output(wait=True)
                 display(image)
                 print(id)
-            except Exception as e: pass
+            except Exception: pass

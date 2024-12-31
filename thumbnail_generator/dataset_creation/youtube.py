@@ -14,10 +14,7 @@ from google.api_core.exceptions import InternalServerError
 
 import torch
 from transformers import AutoTokenizer, AutoModel
-import numpy as np
 import torchvision.transforms as T
-from decord import VideoReader, cpu
-from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 
 

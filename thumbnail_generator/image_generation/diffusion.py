@@ -21,17 +21,16 @@ class Diffuser():
                  width = None,
                  seed = None):
         generator = None if seed is None else torch.Generator("cuda").manual_seed(seed)
-
         isSana = issubclass(type(self.pipe), SanaPipeline)
-            
+
         self.images = self.pipe(
             [prompt] * batch_size,
-            # num_inference_steps = steps,
-            # guidance_scale = guidance,
-            # height = height,
-            # width = width,
-            # generator = generator,
-            # negative_prompt = [negative_prompt] * batch_size
+            num_inference_steps = steps,
+            guidance_scale = guidance,
+            height = height if not isSana else 1024,
+            width = width if not isSana else 1024,
+            generator = generator,
+            negative_prompt = [negative_prompt] * batch_size
         ).images
         return self.images
 

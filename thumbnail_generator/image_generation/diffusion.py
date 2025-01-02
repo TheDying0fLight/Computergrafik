@@ -8,8 +8,8 @@ import torch
 from IPython.display import clear_output, display
 
 class Diffuser():
-    def __init__(self, model = "stabilityai/stable-diffusion-xl-base-1.0"):
-        self.set_model(model)
+    def __init__(self):
+        self.set_model("stabilityai/stable-diffusion-xl-base-1.0")
 
     def generate(self,
                  prompt,

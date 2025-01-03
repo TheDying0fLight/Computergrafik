@@ -164,7 +164,7 @@ class Youtube():
                 except InternalServerError: continue
                 break
             if keyname == "internvl2":
-                generation_config = dict(max_new_tokens=1024, do_sample=True)
+                generation_config = dict(max_new_tokens=1024, do_sample=True, pad_token_id = tokenizer.eos_token_id)
                 video["thumbnail_description"] = model.chat(tokenizer, pixel_values, '<image>\n' + prompt, generation_config)
         if show:
             try:

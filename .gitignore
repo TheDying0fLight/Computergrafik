@@ -163,5 +163,5 @@ cython_debug/
 *.safetensors
 *.png
 /token.txt
-/dataset/transformed
-/StableDiffusion
+/lora
+/wandb

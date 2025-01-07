@@ -1,9 +1,9 @@
 from pyyoutube import Api
 from youtube_transcript_api import YouTubeTranscriptApi
 import json
-import requests, shutil
+import requests
+import shutil
 import os
-import asyncio
 import time
 from PIL import Image
 from pathlib import Path
@@ -14,10 +14,7 @@ from google.api_core.exceptions import InternalServerError
 
 import torch
 from transformers import AutoTokenizer, AutoModel
-import numpy as np
 import torchvision.transforms as T
-from decord import VideoReader, cpu
-from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 
 
@@ -31,10 +28,10 @@ class Youtube():
         if path is not None:
             try:
                 with open(f"{path}.json", "r") as f: self.videos = json.load(f)
-            except: pass
+            except Exception: pass
 
     def to_json(self, path = None):
-        if not path is None: self.path = path
+        if path is not None: self.path = path
         if self.path is None: raise ValueError("A path has to be defined")
         with open(f"{self.path}.json", "w") as f: json.dump(self.videos, f)
 
@@ -42,7 +39,7 @@ class Youtube():
         added = []
         if api_key is not None: self.api = Api(api_key=api_key)
         try: self.api
-        except: raise ValueError("A api_key has to be given at least once")
+        except Exception: raise ValueError("A api_key has to be given at least once")
         videos = self.api.get_videos_by_chart(chart="mostPopular", count=amount).to_dict()["items"]
         for video in videos:
             exists = False
@@ -60,16 +57,14 @@ class Youtube():
         for v in self.videos:
             if amount is not None and len(added) >= amount: break
             try: v["caption"]
-            except:
+            except Exception:
                 try:
                     v["caption"] = YouTubeTranscriptApi.get_transcript(v["id"])
                     added.append(v)
                     try:
-                        clear_output(wait=True)
-                        print(v["caption"])
-                    except: pass
-                except Exception as e:
-                    v["caption"] = None
+                        print(v["caption"], end='\r')
+                    except Exception: pass
+                except Exception: v["caption"] = None
         return added
 
     # attempt to use pytube instead of YoutubeTranscriptApi
@@ -94,9 +89,9 @@ class Youtube():
             if os.path.exists(path): continue
             urls = v["snippet"]["thumbnails"]
             try: url = urls["standard"]["url"]
-            except:
+            except Exception:
                 try: url = urls["maxres"]["url"]
-                except: url = urls["high"]["url"]
+                except Exception: url = urls["high"]["url"]
             r = requests.get(url, stream=True)
             if r.status_code == 200:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -109,22 +104,22 @@ class Youtube():
                     try:
                         clear_output(wait=True)
                         display(img)
-                    except: pass
+                    except Exception: pass
         return thumbnails
 
     def add_gemini_thumbnail_description(self, api_key, amount=15, show=False, requests_per_min=10, overwrite=False):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
         interval = 60 / requests_per_min
-        
+
         for v in self.videos:
             if amount is not None and amount < 0: break
             ret = self.generate_thumbnail_description(v, show, overwrite, model, tokenizer=None, keyname="gemini")
             if ret != -1: time.sleep(interval)
             if amount is not None: amount -= 1
-    
+
     def add_internvl2_thumbnail_description(self, show=False, overwrite=False):
-        path = "OpenGVLab/InternVL2-1B"
+        path = "OpenGVLab/InternVL2_5-1B"
         model = AutoModel.from_pretrained(
             path,
             torch_dtype=torch.bfloat16,
@@ -134,15 +129,15 @@ class Youtube():
         tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True, use_fast=False)
 
         for v in self.videos:
-            ret = self.generate_thumbnail_description(v, show, overwrite, model, tokenizer, keyname="internvl2")
+            self.generate_thumbnail_description(v, show, overwrite, model, tokenizer, keyname="internvl2")
 
     def generate_thumbnail_description(self, video, show, overwrite, model, tokenizer, keyname):
         try: video["thumbnail_descriptions"]
-        except: video["thumbnail_descriptions"] = {}
+        except Exception: video["thumbnail_descriptions"] = {}
         try:
             video["thumbnail_descriptions"][keyname]
             if not overwrite: return -1
-        except: pass
+        except Exception: pass
         id = video['id']
         image_path = os.path.join(self.path, f"{id}.webp")
 
@@ -158,20 +153,20 @@ class Youtube():
 
         prompt = "Generate a positive prompt for Stable Diffusion for the given thumbnail with no more than 77 tokens. The response should only include the prompt."
 
-        for i in range(10):
-            if keyname == "gemini":
+        if keyname == "gemini":
+            for i in range(10):
                 try: video["thumbnail_descriptions"][keyname] = model.generate_content([image, prompt]).text
                 except InternalServerError: continue
                 break
-            if keyname == "internvl2":
-                generation_config = dict(max_new_tokens=1024, do_sample=True, pad_token_id = tokenizer.eos_token_id)
-                video["thumbnail_description"] = model.chat(tokenizer, pixel_values, '<image>\n' + prompt, generation_config)
+        if keyname == "internvl2":
+            generation_config = dict(max_new_tokens=1024, do_sample=True, pad_token_id = tokenizer.eos_token_id)
+            video["thumbnail_descriptions"][keyname] = model.chat(tokenizer, pixel_values, '<image>\n' + prompt, generation_config)
         if show:
             try:
                 clear_output(wait=True)
                 display(image)
-                print(id)
-            except Exception as e: pass
+                print(video["thumbnail_descriptions"][keyname])
+            except Exception: pass
 
 
     ###################################

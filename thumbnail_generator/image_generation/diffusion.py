@@ -1,13 +1,15 @@
-from diffusers import AutoPipelineForText2Image, DiffusionPipeline, StableDiffusion3Pipeline, AutoencoderTiny
+from diffusers import StableDiffusion3Pipeline, AutoencoderTiny, SanaPipeline, DiffusionPipeline
 from PIL import Image
 from pathlib import Path
 import numpy as np
-import os, pandas, torch
-from IPython.display import clear_output
+import os
+import pandas
+import torch
+from IPython.display import clear_output, display
 
 class Diffuser():
-    def __init__(self, model = "stabilityai/stable-diffusion-xl-base-1.0"):
-        self.set_model(model)
+    def __init__(self):
+        self.set_model("stabilityai/stable-diffusion-xl-base-1.0")
 
     def generate(self,
                  prompt,
@@ -19,13 +21,14 @@ class Diffuser():
                  width = None,
                  seed = None):
         generator = None if seed is None else torch.Generator("cuda").manual_seed(seed)
+        isSana = issubclass(type(self.pipe), SanaPipeline)
 
         self.images = self.pipe(
             [prompt] * batch_size,
             num_inference_steps = steps,
             guidance_scale = guidance,
-            height = height,
-            width = width,
+            height = height if not isSana else 1024,
+            width = width if not isSana else 1024,
             generator = generator,
             negative_prompt = [negative_prompt] * batch_size
         ).images
@@ -34,12 +37,12 @@ class Diffuser():
     def set_model(self, model):
         if issubclass(type(model), DiffusionPipeline): self.pipe = model
         else:
-            self.pipe: DiffusionPipeline = DiffusionPipeline.from_pretrained(
+            self.pipe = DiffusionPipeline.from_pretrained(
                 model,
                 torch_dtype=torch.float16)
 
         try: self.pipe.enable_vae_slicing()
-        except: pass
+        except Exception: pass
         self.pipe.to("cuda")
         self.pipe.enable_model_cpu_offload()
 
@@ -53,6 +56,17 @@ class Diffuser():
         pipe.vae = AutoencoderTiny.from_pretrained("madebyollin/taesd3", torch_dtype=torch.float16)
         return pipe
 
+    def sana_sd3pipeline(self, path):
+        pipe = SanaPipeline.from_pretrained(
+            path,
+            torch_dtype=torch.float16
+        )
+        pipe.vae.to(torch.bfloat16)
+        pipe.text_encoder.to(torch.bfloat16)
+        pipe.transformer = pipe.transformer.to(torch.bfloat16)
+        pipe.enable_model_cpu_offload()
+        return pipe
+
     def get_grid(self):
         size = int(np.ceil(np.sqrt(len(self.images))))
         return self._image_grid_(self.images, size, size)
@@ -60,7 +74,6 @@ class Diffuser():
     def _image_grid_(self, imgs, rows, cols):
         w, h = imgs[0].size
         grid = Image.new('RGB', size=(cols*w, rows*h))
-
         for i, img in enumerate(imgs): grid.paste(img, box=(i%cols*w, i//cols*h))
         return grid
 
@@ -79,5 +92,5 @@ class Diffuser():
             try:
                 clear_output(wait=True)
                 display(img)
-            except: pass
+            except Exception: pass
             img.save(path)

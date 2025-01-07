@@ -119,7 +119,7 @@ class Youtube():
             if amount is not None: amount -= 1
 
     def add_internvl2_thumbnail_description(self, show=False, overwrite=False):
-        path = "OpenGVLab/InternVL2-1B"
+        path = "OpenGVLab/InternVL2_5-1B"
         model = AutoModel.from_pretrained(
             path,
             torch_dtype=torch.bfloat16,

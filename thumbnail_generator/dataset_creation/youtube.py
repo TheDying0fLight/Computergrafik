@@ -145,7 +145,6 @@ class Youtube():
             if keyname == "gemini":
                 image = Image.open(image_path)
             if keyname == "internvl2":
-                image = Image.open(image_path).convert('RGB')
                 pixel_values = Youtube.load_image(image_path, max_num=12).to(torch.bfloat16).cuda()
         except FileNotFoundError:
             print(f"Video {id} has no thumbnail")

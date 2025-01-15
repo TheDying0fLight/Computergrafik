@@ -10,7 +10,7 @@ from compel import Compel, ReturnedEmbeddingsType
 
 class Diffuser():
     def __init__(self):
-        self.set_model("stable-diffusion-v1-5/stable-diffusion-v1-5")
+        self.set_model("stabilityai/stable-diffusion-xl-base-1.0")
 
     def generate(self,
                  prompt,
@@ -23,16 +23,14 @@ class Diffuser():
                  seed = None):
         generator = None if seed is None else torch.Generator("cuda").manual_seed(seed)
         isSana = issubclass(type(self.pipe), SanaPipeline)
-        # compel = Compel(tokenizer=[self.pipe.tokenizer, self.pipe.tokenizer_2],
-        #                 text_encoder=[self.pipe.text_encoder, self.pipe.text_encoder_2],
-        #                 returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-        # prompt_embeds, pooled = compel([prompt] * batch_size)
-        compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
-        prompt_embeds = compel([prompt] * batch_size)
+        compel = Compel(tokenizer=[self.pipe.tokenizer, self.pipe.tokenizer_2],
+                        text_encoder=[self.pipe.text_encoder, self.pipe.text_encoder_2],
+                        returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+        prompt_embeds, pooled = compel([prompt] * batch_size)
 
         self.images = self.pipe(
             prompt_embeds = prompt_embeds,
-            # pooled_prompt_embeds = pooled,
+            pooled_prompt_embeds = pooled,
             num_inference_steps = steps,
             guidance_scale = guidance,
             height = height if not isSana else 1024,

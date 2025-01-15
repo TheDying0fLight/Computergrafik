@@ -17,6 +17,40 @@ from transformers import AutoTokenizer, AutoModel
 import torchvision.transforms as T
 from torchvision.transforms.functional import InterpolationMode
 
+categories = {
+    1: "Film & Animation",
+    2: "Autos & Vehicles",
+    10: "Music",
+    15: "Pets & Animals",
+    17: "Sports",
+    18: "Short Movies",
+    19: "Travel & Events",
+    20: "Gaming",
+    21: "Videoblogging",
+    22: "People & Blogs",
+    23: "Comedy",
+    24: "Entertainment",
+    25: "News & Politics",
+    26: "Howto & Style",
+    27: "Education",
+    28: "Science & Technology",
+    29: "Nonprofits & Activism",
+    30: "Movies",
+    31: "Anime/Animation",
+    32: "Action/Adventure",
+    33: "Classics",
+    34: "Comedy",
+    35: "Documentary",
+    36: "Drama",
+    37: "Family",
+    38: "Foreign",
+    39: "Horror",
+    40: "Sci-Fi/Fantasy",
+    41: "Thriller",
+    42: "Shorts",
+    43: "Shows",
+    44: "Trailers"
+}
 
 _default_clients["ANDROID_MUSIC"] = _default_clients["WEB"]
 yt_str = "https://www.youtube.com/watch?v={}"
@@ -145,7 +179,6 @@ class Youtube():
             if keyname == "gemini":
                 image = Image.open(image_path)
             if keyname == "internvl2":
-                image = Image.open(image_path).convert('RGB')
                 pixel_values = Youtube.load_image(image_path, max_num=12).to(torch.bfloat16).cuda()
         except FileNotFoundError:
             print(f"Video {id} has no thumbnail")

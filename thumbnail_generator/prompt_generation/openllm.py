@@ -13,7 +13,7 @@ model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-large", devic
 
 def get_prompts(transcript: str = None) -> dict[str,str]:
     if transcript is None: transcript = example_transcript
-    
+
     responses = {}
 
     prompt_positive = "Generate a positive prompt for stable diffusion of the following text with no more than 77 tokens.\nThe text: " + transcript
@@ -37,5 +37,5 @@ def get_prompts(transcript: str = None) -> dict[str,str]:
         top_p=0.95,
         do_sample=True)
     responses["negative"] = tokenizer.decode(tokens_negative[0], skip_special_tokens=True)
-    
+
     return responses

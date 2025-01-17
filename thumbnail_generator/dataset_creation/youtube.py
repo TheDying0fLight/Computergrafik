@@ -131,7 +131,7 @@ class Youtube():
         return thumbnails
 
     def generate_thumbnail_description(self, video: dict, model, keyname, show=False, overwrite=False):
-        """ "keynames: "gemini", "internvl" """
+        """ "keynames: "gemini", "internvl", "moondream" """
         desc = "thumbnail_descriptions"
         if desc not in video: video[desc] = {}
         if keyname in video[desc] and not overwrite: return -1

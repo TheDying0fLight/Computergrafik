@@ -119,7 +119,7 @@ class Youtube():
         for v in self.videos:
             if amount is not None and len(thumbnails) >= amount: break
             id = v["id"]
-            path = Path(f"{self.path}/{id}.webp")
+            path = Path(f"{self.path}/{id}.jpeg")
             if os.path.exists(path): continue
             urls = v["snippet"]["thumbnails"]
             try: url = urls["standard"]["url"]

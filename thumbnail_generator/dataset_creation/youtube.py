@@ -152,7 +152,8 @@ class Youtube():
         return 202
 
     def generate_thumbnail_descriptions(self, model, amount=200, hz=None, **kwargs):
-        for v in self.videos:
+        for idx, v in enumerate(self.videos):
+            print(f"{idx}/{len(self.videos.values())}")
             ret = self.generate_thumbnail_description(v, model, **kwargs)
             if not ret == -1:
                 if hz is not None: time.sleep(60 / hz)
@@ -270,14 +271,17 @@ class Description:
         return generate
 
     def moondream():
+        vipshome = r'C:\vips-dev-8.16\bin'
+        import os
+        os.environ['PATH'] = vipshome + ';' + os.environ['PATH']
         model = AutoModelForCausalLM.from_pretrained(
             "vikhyatk/moondream2",
             revision="2025-01-09",
             trust_remote_code=True,
-            device=device
+            device_map={"": device}
         )
 
-        def generate(image, **kwargs):
+        def generate(image, prompt):
             image = Image.open(image)
             return model.caption(image, length="normal")["caption"]
         return generate

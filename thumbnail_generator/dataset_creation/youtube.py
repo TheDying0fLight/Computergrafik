@@ -13,7 +13,7 @@ import google.generativeai as genai
 from google.api_core.exceptions import InternalServerError
 
 import torch
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 import torchvision.transforms as T
 from torchvision.transforms.functional import InterpolationMode
 
@@ -54,6 +54,8 @@ categories = {
 
 _default_clients["ANDROID_MUSIC"] = _default_clients["WEB"]
 yt_str = "https://www.youtube.com/watch?v={}"
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 class Youtube():
     def __init__(self, path: str = None) -> None:
@@ -64,12 +66,12 @@ class Youtube():
                 with open(f"{path}.json", "r") as f: self.videos = json.load(f)
             except Exception: pass
 
-    def to_json(self, path = None):
+    def to_json(self, path=None):
         if path is not None: self.path = path
         if self.path is None: raise ValueError("A path has to be defined")
         with open(f"{self.path}.json", "w") as f: json.dump(self.videos, f)
 
-    def get_popular(self, api_key = None, amount = 5) -> list:
+    def get_popular(self, api_key=None, amount=5) -> list:
         added = []
         if api_key is not None: self.api = Api(api_key=api_key)
         try: self.api
@@ -86,7 +88,7 @@ class Youtube():
                 added.append(video)
         return added
 
-    def add_transcripts(self, amount = 10, verbose = False):
+    def add_transcripts(self, amount=10, verbose=False):
         added = []
         for v in self.videos:
             if amount is not None and len(added) >= amount: break
@@ -101,25 +103,12 @@ class Youtube():
                 except Exception: v["caption"] = None
         return added
 
-    # attempt to use pytube instead of YoutubeTranscriptApi
-    # def add_transcripts(self, amount = 10, verbose = False):
-    #     added = []
-    #     for v in self.videos:
-    #         if amount <= 0: break
-    #         try: v["caption"]
-    #         except:
-    #             vid = pytube.YouTube(yt_str.format(v["id"]))
-    #             tracks = [k.__dict__["code"] for k in list(vid.captions.keys()) if "en" in k.__dict__["code"]]
-    #             if len(tracks) > 0: print(vid.captions[tracks[-1]].json_captions)
-    #             amount -= 1
-    #     return added
-
-    def add_thumbnails(self, amount = 10, show = False):
+    def add_thumbnails(self, amount=10, show=False):
         thumbnails = []
         for v in self.videos:
             if amount is not None and len(thumbnails) >= amount: break
             id = v["id"]
-            path = Path(f"{self.path}/{id}.webp")
+            path = Path(f"{self.path}/{id}.jpeg")
             if os.path.exists(path): continue
             urls = v["snippet"]["thumbnails"]
             try: url = urls["standard"]["url"]
@@ -141,66 +130,35 @@ class Youtube():
                     except Exception: pass
         return thumbnails
 
-    def add_gemini_thumbnail_description(self, api_key, amount=15, show=False, requests_per_min=10, overwrite=False):
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        interval = 60 / requests_per_min
-
-        for v in self.videos:
-            if amount is not None and amount < 0: break
-            ret = self.generate_thumbnail_description(v, show, overwrite, model, tokenizer=None, keyname="gemini")
-            if ret != -1: time.sleep(interval)
-            if amount is not None: amount -= 1
-
-    def add_internvl2_thumbnail_description(self, show=False, overwrite=False):
-        path = "OpenGVLab/InternVL2_5-1B"
-        model = AutoModel.from_pretrained(
-            path,
-            torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True,
-            use_flash_attn=True,
-            trust_remote_code=True).eval().cuda()
-        tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True, use_fast=False)
-
-        for v in self.videos:
-            self.generate_thumbnail_description(v, show, overwrite, model, tokenizer, keyname="internvl2")
-
-    def generate_thumbnail_description(self, video, show, overwrite, model, tokenizer, keyname):
-        try: video["thumbnail_descriptions"]
-        except Exception: video["thumbnail_descriptions"] = {}
-        try:
-            video["thumbnail_descriptions"][keyname]
-            if not overwrite: return -1
-        except Exception: pass
+    def generate_thumbnail_description(self, video: dict, model, keyname, show=False, overwrite=False):
+        """ "keynames: "gemini", "internvl", "moondream" """
+        desc = "thumbnail_descriptions"
+        if desc not in video: video[desc] = {}
+        if keyname in video[desc] and not overwrite: return -1
         id = video['id']
-        image_path = os.path.join(self.path, f"{id}.webp")
+        image_path = os.path.join(self.path, f"{id}.jpeg")
+        try: image = Image.open(image_path)
+        except Exception: return -1
 
-        try:
-            if keyname == "gemini":
-                image = Image.open(image_path)
-            if keyname == "internvl2":
-                pixel_values = Youtube.load_image(image_path, max_num=12).to(torch.bfloat16).cuda()
-        except FileNotFoundError:
-            print(f"Video {id} has no thumbnail")
-            return -1
+        prompt = "Generate a positive prompt for Stable Diffusion for the given thumbnail. The response should only include the prompt."
 
-        prompt = "Generate a positive prompt for Stable Diffusion for the given thumbnail with no more than 77 tokens. The response should only include the prompt."
-
-        if keyname == "gemini":
-            for i in range(10):
-                try: video["thumbnail_descriptions"][keyname] = model.generate_content([image, prompt]).text
-                except InternalServerError: continue
-                break
-        if keyname == "internvl2":
-            generation_config = dict(max_new_tokens=1024, do_sample=True, pad_token_id = tokenizer.eos_token_id)
-            video["thumbnail_descriptions"][keyname] = model.chat(tokenizer, pixel_values, '<image>\n' + prompt, generation_config)
+        video[desc][keyname] = model(image_path, prompt)
         if show:
             try:
                 clear_output(wait=True)
                 display(image)
-                print(video["thumbnail_descriptions"][keyname])
+                print(video[desc][keyname])
             except Exception: pass
+        return 202
 
+    def generate_thumbnail_descriptions(self, model, amount=200, hz=None, **kwargs):
+        for v in self.videos:
+            ret = self.generate_thumbnail_description(v, model, **kwargs)
+            if not ret == -1:
+                if hz is not None: time.sleep(60 / hz)
+                if amount is not None:
+                    amount -= 1
+                    if amount < 0: break
 
     ###################################
     # image preprocessing for InternVL2
@@ -279,3 +237,47 @@ class Youtube():
         pixel_values = [transform(image) for image in images]
         pixel_values = torch.stack(pixel_values)
         return pixel_values
+
+
+class Description:
+    def gemini(api_key):
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        def generate(image, prompt):
+            image = Image.open(image)
+            for i in range(10):
+                try: return model.generate_content([image, prompt]).text
+                except InternalServerError: continue
+            return None
+        return generate
+
+    def internvl():
+        path = "OpenGVLab/InternVL2_5-1B"
+        model = AutoModel.from_pretrained(
+            path,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+            use_flash_attn=True,
+            trust_remote_code=True
+        ).eval().cuda()
+        tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True, use_fast=False)
+
+        def generate(image, prompt):
+            pixel_values = Youtube.load_image(image, max_num=12).to(torch.bfloat16).cuda()
+            generation_config = dict(max_new_tokens=1024, do_sample=True, pad_token_id=tokenizer.eos_token_id)
+            return model.chat(tokenizer, pixel_values, '<image>\n' + prompt, generation_config)
+        return generate
+
+    def moondream():
+        model = AutoModelForCausalLM.from_pretrained(
+            "vikhyatk/moondream2",
+            revision="2025-01-09",
+            trust_remote_code=True,
+            device=device
+        )
+
+        def generate(image, **kwargs):
+            image = Image.open(image)
+            return model.caption(image, length="normal")["caption"]
+        return generate

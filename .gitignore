@@ -166,3 +166,7 @@ cython_debug/
 /lora
 /wandb
 /training_data
+/runs
+*.zip
+*.pt
+/test

@@ -27,6 +27,8 @@ class Diffuser():
                         text_encoder=[self.pipe.text_encoder, self.pipe.text_encoder_2],
                         returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
         prompt_embeds, pooled = compel([prompt] * batch_size)
+        # compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
+        # prompt_embeds = compel([prompt] * batch_size)
 
         self.images = self.pipe(
             prompt_embeds = prompt_embeds,

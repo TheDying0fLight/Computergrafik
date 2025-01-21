@@ -131,7 +131,7 @@ class Youtube():
         return thumbnails
 
     def generate_thumbnail_description(self, video: dict, model, keyname, show=False, overwrite=False):
-        """ "keynames: "gemini", "internvl", "moondream" """
+        """ "keynames: "gemini", "internvl2", "moondream" """
         desc = "thumbnail_descriptions"
         if desc not in video: video[desc] = {}
         if keyname in video[desc] and not overwrite: return -1
@@ -151,10 +151,10 @@ class Youtube():
             except Exception: pass
         return 202
 
-    def generate_thumbnail_descriptions(self, model, amount=200, hz=None, **kwargs):
+    def generate_thumbnail_descriptions(self, model, keyname, amount=None, hz=None, **kwargs):
         for idx, v in enumerate(self.videos):
-            print(f"{idx}/{len(self.videos.values())}")
-            ret = self.generate_thumbnail_description(v, model, **kwargs)
+            ret = self.generate_thumbnail_description(v, model, keyname, **kwargs)
+            print(f"Generating with {keyname}\n{idx}/{len(self.videos)}", "\r")
             if not ret == -1:
                 if hz is not None: time.sleep(60 / hz)
                 if amount is not None:

@@ -168,5 +168,5 @@ cython_debug/
 /training_data
 /runs
 *.zip
-*.pt
+yolo11n.pt
 /test

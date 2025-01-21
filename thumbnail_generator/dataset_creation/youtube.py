@@ -154,7 +154,7 @@ class Youtube():
     def generate_thumbnail_descriptions(self, model, keyname, amount=None, hz=None, **kwargs):
         for idx, v in enumerate(self.videos):
             ret = self.generate_thumbnail_description(v, model, keyname, **kwargs)
-            print(f"Generating with {keyname}\n{idx}/{len(self.videos)}", "\r")
+            print(f"Generating with {keyname}\n{idx+1}/{len(self.videos)}", "\r")
             if not ret == -1:
                 if hz is not None: time.sleep(60 / hz)
                 if amount is not None:

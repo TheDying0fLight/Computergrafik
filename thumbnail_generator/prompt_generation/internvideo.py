@@ -37,10 +37,10 @@ def get_prompts(transcript: str = None) -> dict[str,str]:
     chat_history= []
 
     prompt_positive = "Generate a positive prompt for stable diffusion of the following text with no more than 77 tokens.\nThe text: " + transcript
-    prompt_negative = "Generate a negative prompt for stable diffusion of the following text with no more than 77 tokens.\nThe text: " + transcript
+    # prompt_negative = "Generate a negative prompt for stable diffusion of the following text with no more than 77 tokens.\nThe text: " + transcript
     
     responses["positive"] = model.chat(tokenizer, '', prompt_positive, media_type='video', media_tensor=video_tensor, chat_history= chat_history, return_history=True, generation_config=generation_config)[0]
-    responses["negative"] = model.chat(tokenizer, '', prompt_negative, media_type='video', media_tensor=video_tensor, chat_history= chat_history, return_history=True, generation_config=generation_config)[0]
+    # responses["negative"] = model.chat(tokenizer, '', prompt_negative, media_type='video', media_tensor=video_tensor, chat_history= chat_history, return_history=True, generation_config=generation_config)[0]
     
     return responses
 

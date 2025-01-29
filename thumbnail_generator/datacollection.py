@@ -11,7 +11,9 @@ from pytube.innertube import _default_clients
 from IPython.display import clear_output, display
 import google.generativeai as genai
 from google.api_core.exceptions import InternalServerError
-
+import pytubefix
+import subprocess
+import multiprocessing
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 import torchvision.transforms as T
@@ -284,3 +286,34 @@ class Description:
             image = Image.open(image)
             return model.caption(image, length="normal")["caption"]
         return generate
+
+def extract_frame(i, timestamp, ffmpeg_path, video_url, output_path):
+    timestamp_str = time.strftime("%H:%M:%S", time.gmtime(timestamp))
+    output_file = f"{output_path}/{i}.jpeg"
+
+    cmd = f'{ffmpeg_path} -ss {timestamp_str} -i "{video_url}" -frames:v 1 -q:v 2 -y "{output_file}"'
+    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def parallel_frame_extraction(video_id, frames=10, output_path="frames"):
+    ff_path = "C:\\Users\\simon\\AppData\\Local\\Microsoft\\WinGet\\Links\\{}"
+    ffmpeg_path = ff_path.format("ffmpeg.exe")
+    ffprobe_path = ff_path.format("ffprobe.exe")
+    path = f"{output_path}/{video_id}"
+    Path(path).mkdir(parents=True, exist_ok=True)
+
+    yt = pytubefix.YouTube(yt_str.format(video_id), use_po_token=True, token_file="yt_token.json")
+    video_stream = yt.streams.filter(file_extension="mp4", only_video=True).first()
+    video_url = video_stream.url
+
+    cmd = [
+        ffprobe_path, "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "format=duration",
+        "-of", "default=nokey=1:noprint_wrappers=1", video_url
+    ]
+    duration = int(float(subprocess.check_output(cmd).decode().strip()))
+    print(duration)
+    skip = int(duration//frames)
+    timestamps = [(i, ts) for i, ts in enumerate(range(skip // 2, duration, skip))]
+
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        pool.starmap(extract_frame, [(i, ts, ffmpeg_path, video_url, path) for i, ts in timestamps])

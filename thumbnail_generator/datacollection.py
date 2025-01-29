@@ -294,10 +294,9 @@ def extract_frame(i, timestamp, ffmpeg_path, video_url, output_path):
     cmd = f'{ffmpeg_path} -ss {timestamp_str} -i "{video_url}" -frames:v 1 -q:v 2 -y "{output_file}"'
     subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def parallel_frame_extraction(video_id, frames=10, output_path="frames"):
-    ff_path = "C:\\Users\\simon\\AppData\\Local\\Microsoft\\WinGet\\Links\\{}"
-    ffmpeg_path = ff_path.format("ffmpeg.exe")
-    ffprobe_path = ff_path.format("ffprobe.exe")
+def parallel_frame_extraction(ff_path, video_id, frames=10, output_path="frames"):
+    ffmpeg_path = ff_path + "\\ffmpeg.exe"
+    ffprobe_path = ff_path + "\\ffprobe.exe"
     path = f"{output_path}/{video_id}"
     Path(path).mkdir(parents=True, exist_ok=True)
 
@@ -311,7 +310,6 @@ def parallel_frame_extraction(video_id, frames=10, output_path="frames"):
         "-of", "default=nokey=1:noprint_wrappers=1", video_url
     ]
     duration = int(float(subprocess.check_output(cmd).decode().strip()))
-    print(duration)
     skip = int(duration//frames)
     timestamps = [(i, ts) for i, ts in enumerate(range(skip // 2, duration, skip))]
 

@@ -303,10 +303,11 @@ def process_video(in_path, out_path, frame_amt, overwrite, id):
     video_path = f"{in_path}/{id}.webm"
     image_path = f"{out_path}/{id}"
     if not os.path.exists(video_path): return
-    _, _, files = next(os.walk("/usr/lib"))
-    file_count = len(files)
-    if not overwrite and os.path.exists(image_path) and file_count == frame_amt: return
+    if not overwrite and os.path.exists(image_path): return
     Path(image_path).mkdir(parents=True, exist_ok=True)
+    _, _, files = next(os.walk(image_path))
+    file_count = len(files)
+    if file_count == frame_amt: return
     frames = extract_frames(video_path, frame_amt)
     for idx, f in enumerate(frames):
         plt.imsave(f"{image_path}/{idx}.jpeg", f)

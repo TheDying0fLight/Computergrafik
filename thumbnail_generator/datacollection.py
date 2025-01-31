@@ -11,13 +11,12 @@ from pytube.innertube import _default_clients
 from IPython.display import clear_output, display
 import google.generativeai as genai
 from google.api_core.exceptions import InternalServerError
-import pytubefix
-import subprocess
-import multiprocessing
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 import torchvision.transforms as T
 from torchvision.transforms.functional import InterpolationMode
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from matplotlib import pyplot as plt
 
 categories = {
     1: "Film & Animation",
@@ -286,3 +285,28 @@ class Description:
             image = Image.open(image)
             return model.caption(image, length="normal")["caption"]
         return generate
+
+def extract_frames(video_path, frame_amt = 10):
+  video = VideoFileClip(video_path)
+  duration = video.duration
+  frames = []
+  step = duration/frame_amt
+  time = step/2
+  while time < duration:
+    frames.append(video.get_frame(time))
+    time += step
+  clear_output(wait=True)
+  video.close()
+  return frames
+
+def process_video(in_path, out_path, frame_amt, overwrite, id):
+    video_path = f"{in_path}/{id}.webm"
+    image_path = f"{out_path}/{id}"
+    if not os.path.exists(video_path): return
+    _, _, files = next(os.walk("/usr/lib"))
+    file_count = len(files)
+    if not overwrite and os.path.exists(image_path) and file_count == frame_amt: return
+    Path(image_path).mkdir(parents=True, exist_ok=True)
+    frames = extract_frames(video_path, frame_amt)
+    for idx, f in enumerate(frames):
+        plt.imsave(f"{image_path}/{idx}.jpeg", f)

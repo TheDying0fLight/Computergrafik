@@ -17,6 +17,7 @@ import torchvision.transforms as T
 from torchvision.transforms.functional import InterpolationMode
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from matplotlib import pyplot as plt
+import urllib.parse as urlparse
 
 categories = {
     1: "Film & Animation",
@@ -311,3 +312,26 @@ def process_video(in_path, out_path, frame_amt, overwrite, id):
     frames = extract_frames(video_path, frame_amt)
     for idx, f in enumerate(frames):
         plt.imsave(f"{image_path}/{idx}.jpeg", f)
+
+
+# https://stackoverflow.com/questions/4356538/how-can-i-extract-video-id-from-youtubes-link-in-python
+def video_id(value):
+    """
+    Examples:
+    - http://youtu.be/SA2iWivDJiE
+    - http://www.youtube.com/watch?v=_oPAwA_Udwc&feature=feedu
+    - http://www.youtube.com/embed/SA2iWivDJiE
+    - http://www.youtube.com/v/SA2iWivDJiE?version=3&amp;hl=en_US
+    """
+    query = urlparse.urlparse(value)
+    if query.hostname == 'youtu.be':
+        return query.path[1:]
+    if query.hostname in ('www.youtube.com', 'youtube.com', 'm.youtube.com'):
+        if query.path == '/watch':
+            p = urlparse.parse_qs(query.query)
+            return p['v'][0]
+        if query.path[:7] == '/embed/':
+            return query.path.split('/')[2]
+        if query.path[:3] == '/v/':
+            return query.path.split('/')[2]
+    return None

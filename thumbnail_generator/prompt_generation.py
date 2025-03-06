@@ -2,8 +2,12 @@ import google.generativeai as genai
 import numpy as np
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from torchvision import transforms
-from .datacollection import extract_frames
+from PIL import Image
+from torchvision import models, transforms
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from IPython.display import clear_output, display
+
+#from .datacollection import extract_frames
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 CUDA_LAUNCH_BLOCKING = 1
@@ -53,10 +57,19 @@ class PromptGenerator():
 
 def video_to_emb(video_path):
 
-    # Video in frames
-    frames = extract_frames(video_path, 2)
-
-    # Frames in embeddings
+      # Video in frames
+    video = VideoFileClip(video_path)
+    duration = video.duration
+    frames = []
+    step = duration/2
+    time = step/2
+    while time < duration:
+      frames.append(video.get_frame(time))
+      time += step
+    clear_output(wait=True)
+    video.close()
+    
+      # Frames in embeddings
     embeddings = []
     preprocess = transforms.Compose([
         transforms.ToPILImage(),
@@ -83,6 +96,21 @@ def video_to_emb(video_path):
             embeddings.append(embedding)
 
     # Mean of embeddings
-    embeddings_mean = torch.mean(torch.stack(embeddings), dim=0)
+    #embeddings_mean = torch.mean(torch.stack(embeddings), dim=0)
     #print("embedding mean", embeddings_mean.shape)
-    return embeddings_mean
+
+    # Mean of embeddings
+    #if combine_type == 'mul':
+    #embedding_frames = 1
+    #for emb in embeddings:
+    #  embedding_frames = embedding_frames * emb
+    #if combine_type == 'add':
+    embedding_frames = 0
+    for emb in embeddings:
+      embedding_frames = embedding_frames + emb
+    #if combine_type == 'mean':
+    #embedding_frames = torch.mean(torch.stack(embeddings), dim=0)
+
+    return embedding_frames
+
+    #return embeddings_mean

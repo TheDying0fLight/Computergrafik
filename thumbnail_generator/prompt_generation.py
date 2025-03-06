@@ -2,8 +2,7 @@ import google.generativeai as genai
 import numpy as np
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from PIL import Image
-from torchvision import models, transforms
+from torchvision import transforms
 from .datacollection import extract_frames
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'

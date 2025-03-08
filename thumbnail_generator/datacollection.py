@@ -11,13 +11,13 @@ from pytube.innertube import _default_clients
 from IPython.display import clear_output, display
 import google.generativeai as genai
 from google.api_core.exceptions import InternalServerError
-import pytubefix
-import subprocess
-import multiprocessing
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 import torchvision.transforms as T
 from torchvision.transforms.functional import InterpolationMode
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from matplotlib import pyplot as plt
+import urllib.parse as urlparse
 
 categories = {
     1: "Film & Animation",
@@ -287,31 +287,51 @@ class Description:
             return model.caption(image, length="normal")["caption"]
         return generate
 
-def extract_frame(i, timestamp, ffmpeg_path, video_url, output_path):
-    timestamp_str = time.strftime("%H:%M:%S", time.gmtime(timestamp))
-    output_file = f"{output_path}/{i}.jpeg"
+def extract_frames(video_path, frame_amt = 10):
+  video = VideoFileClip(video_path)
+  duration = video.duration
+  frames = []
+  step = duration/frame_amt
+  time = step/2
+  while time < duration:
+    frames.append(video.get_frame(time))
+    time += step
+  clear_output(wait=True)
+  video.close()
+  return frames
 
-    cmd = f'{ffmpeg_path} -ss {timestamp_str} -i "{video_url}" -frames:v 1 -q:v 2 -y "{output_file}"'
-    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+def process_video(in_path, out_path, frame_amt, overwrite, id):
+    video_path = f"{in_path}/{id}.webm"
+    image_path = f"{out_path}/{id}"
+    if not os.path.exists(video_path): return
+    if not overwrite and os.path.exists(image_path): return
+    Path(image_path).mkdir(parents=True, exist_ok=True)
+    _, _, files = next(os.walk(image_path))
+    file_count = len(files)
+    if file_count == frame_amt: return
+    frames = extract_frames(video_path, frame_amt)
+    for idx, f in enumerate(frames):
+        plt.imsave(f"{image_path}/{idx}.jpeg", f)
 
-def parallel_frame_extraction(ff_path, video_id, frames=10, output_path="frames"):
-    ffmpeg_path = ff_path + "\\ffmpeg.exe"
-    ffprobe_path = ff_path + "\\ffprobe.exe"
-    path = f"{output_path}/{video_id}"
-    Path(path).mkdir(parents=True, exist_ok=True)
 
-    yt = pytubefix.YouTube(yt_str.format(video_id), use_po_token=True, token_file="yt_token.json")
-    video_stream = yt.streams.filter(file_extension="mp4", only_video=True).first()
-    video_url = video_stream.url
-
-    cmd = [
-        ffprobe_path, "-v", "error", "-select_streams", "v:0",
-        "-show_entries", "format=duration",
-        "-of", "default=nokey=1:noprint_wrappers=1", video_url
-    ]
-    duration = int(float(subprocess.check_output(cmd).decode().strip()))
-    skip = int(duration//frames)
-    timestamps = [(i, ts) for i, ts in enumerate(range(skip // 2, duration, skip))]
-
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-        pool.starmap(extract_frame, [(i, ts, ffmpeg_path, video_url, path) for i, ts in timestamps])
+# https://stackoverflow.com/questions/4356538/how-can-i-extract-video-id-from-youtubes-link-in-python
+def video_id(value):
+    """
+    Examples:
+    - http://youtu.be/SA2iWivDJiE
+    - http://www.youtube.com/watch?v=_oPAwA_Udwc&feature=feedu
+    - http://www.youtube.com/embed/SA2iWivDJiE
+    - http://www.youtube.com/v/SA2iWivDJiE?version=3&amp;hl=en_US
+    """
+    query = urlparse.urlparse(value)
+    if query.hostname == 'youtu.be':
+        return query.path[1:]
+    if query.hostname in ('www.youtube.com', 'youtube.com', 'm.youtube.com'):
+        if query.path == '/watch':
+            p = urlparse.parse_qs(query.query)
+            return p['v'][0]
+        if query.path[:7] == '/embed/':
+            return query.path.split('/')[2]
+        if query.path[:3] == '/v/':
+            return query.path.split('/')[2]
+    return None

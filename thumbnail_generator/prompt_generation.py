@@ -18,18 +18,17 @@ genai.configure(api_key="AIzaSyAOz2kX5yf8Sd3M5JcmARXZoY2GECYpmxw")
 
 
 class Prompts(Enum):
-    TransToDesc = "Generate a stable diffusion prompt for a thumbnail for the following text and provided images.\nThe text: "
+    VideoToPrompt = "Generate a stable diffusion prompt for a thumbnail for the following text and provided images.\nThe text: "
     SumText = "Generate one sentence that summarizes the content of the following text. \nThe text: "
-    DescrImg = "Generate a description of the following image."
     Rating = "How well does the image illustrate the following text on a scale from 1 (very poor) to 100 (very good)? Name only the number.\nThe text: "
 
 
 class PromptGenerator():
-    def gemini(transcript: str, images: list[Image] = [], prompt=Prompts.TransToDesc) -> dict[str, str]:
+    def gemini(transcript: str, images: list[Image] = [], prompt=Prompts.VideoToPrompt) -> dict[str, str]:
         model = genai.GenerativeModel('gemini-1.5-flash')
         return model.generate_content([prompt.value + transcript, *images]).text
 
-    def moondream(transcript: str, path="vikhyatk/moondream2", ft_path=None, prompt=Prompts.TransToDesc) -> dict[str, str]:
+    def moondream(transcript: str, path="vikhyatk/moondream2", ft_path=None, prompt=Prompts.VideoToPrompt) -> dict[str, str]:
         model = AutoModelForCausalLM.from_pretrained(
             path,
             revision=MD_REVISION,
@@ -44,6 +43,35 @@ class PromptGenerator():
         pos = [prompt.value + transcript]
 
         return model.answer_question(*pos, tokenizer=tokenizer)
+
+
+class Describe():
+    prompt = "Generate one stable diffusion prompt for a thumbnail in a {} style of the following image."
+
+    def gemini(self, image, style: str) -> str:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        description = model.generate_content(
+            [self.prompt.format(style), image]).text
+        return description
+
+    def moondream(self, image, style: str, path="vikhyatk/moondream2", ft_path=None) -> str:
+        model = AutoModelForCausalLM.from_pretrained(
+            path,
+            revision=MD_REVISION,
+            trust_remote_code=True,
+            attn_implementation=None if DEVICE == "cuda" else None,
+            torch_dtype=DTYPE,
+            device_map={"": DEVICE})
+        tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
+
+        if ft_path:
+            model.load_state_dict(torch.load(ft_path, weights_only=True))
+
+        prompt = self.prompt.format(style)
+        prompt = [image, prompt]
+        description = model.answer_question(*prompt, tokenizer=tokenizer)
+
+        return description
 
 
 class FrameRating():
@@ -95,7 +123,7 @@ class FrameRating():
             return similarity.item()
 
         max_threads = multiprocessing.cpu_count()
-        used_threads = min(2,max_threads//2)
+        used_threads = min(2, max_threads // 2)
         with concurrent.futures.ThreadPoolExecutor(used_threads) as executor:
             results = list(executor.map(encode_image_and_calculate_similarity, frames))
         return [results, frames]

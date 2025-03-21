@@ -1,10 +1,14 @@
 from diffusers import StableDiffusionPipeline
 import torch
 from PIL import Image
-#%load_ext autoreload
-#%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 from youtube_transcript_api import YouTubeTranscriptApi
 from thumbnail_generator import video_id, PromptGenerator, Prompts, Describe, FrameRating
+
+from yt_dlp import YoutubeDL
+import os
+import numpy as np
 
 import nltk
 from nltk.corpus import stopwords
@@ -14,11 +18,6 @@ nltk.download('stopwords')
 nltk.download('words')
 nltk.download('punkt_tab')
 
-from yt_dlp import YoutubeDL
-import os
-import numpy as np
-
-
 
 class Pipeline():
 
@@ -26,7 +25,7 @@ class Pipeline():
         return video_id(video_url)
 
     def generate_key_sentence(video_url, LLM_type, frame_amt=20, combine_emb="mul"):
-        
+
         id = Pipeline.preprocess_url(video_url)
 
         print("transcript download and preprocessing...")
@@ -39,7 +38,7 @@ class Pipeline():
         transcript = word_tokenize(transcript)
         transcript = [w.lower() for w in transcript if w not in stop_words and w in words]
         transcript = ' '.join(transcript)
-        
+
         print("model generating key sentence from transcript...")
         sentence = ""
         try:
@@ -47,8 +46,8 @@ class Pipeline():
                 sentence = PromptGenerator.moondream(transcript, prompt=Prompts.SumText)
             elif LLM_type == 'Finetuned Moondream':
                 sentence = PromptGenerator.moondream(transcript,
-                                                ft_path = "/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame",
-                                                prompt=Prompts.SumText)
+                                                     ft_path="/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame",
+                                                     prompt=Prompts.SumText)
             elif LLM_type == 'Gemini':
                 sentence = PromptGenerator.gemini(transcript, prompt=Prompts.SumText)
             else:
@@ -58,10 +57,10 @@ class Pipeline():
 
         return sentence
 
-    def rate_frames(key_sentence, video_url, LLM_type, frame_amt, ext = "webm", res = 480):
-        
+    def rate_frames(key_sentence, video_url, LLM_type, frame_amt, ext="webm", res=480):
+
         print(f"downloading the video and extracting {frame_amt} frames...")
-        
+
         id = Pipeline.preprocess_url(video_url)
 
         opts = {
@@ -84,23 +83,23 @@ class Pipeline():
         if LLM_type == 'CLIP':
             [frame_rating, frames] = FrameRating.clip(key_sentence, f"{id}.{ext}", frame_amt)
             print("FRAME RATING:", list(sorted(frame_rating)))
-        
-        #while max(frame_rating) < 80:
+
+        # while max(frame_rating) < 80:
         try:
             if LLM_type == 'Moondream':
                 [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt)
             elif LLM_type == 'Finetuned Moondream':
                 [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt,
-                                                ft_path = "/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
+                                                               ft_path="/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
             elif LLM_type == 'Gemini':
                 [frame_rating, frames] = FrameRating.gemini(key_sentence, f"{id}.{ext}", frame_amt)
             else:
                 print('wrong LLM_type')
         except Exception as e:
             print(e)
-    
+
         frame_rating = [int(x.strip()) for x in frame_rating if isinstance(x, str) and x.strip().isdigit()]
-        #print("FRAME RATING IN PIPELINE.py:", frame_rating)
+        # print("FRAME RATING IN PIPELINE.py:", frame_rating)
 
         os.remove(f"{id}.{ext}")
         return frame_rating, frames
@@ -112,38 +111,34 @@ class Pipeline():
         return best_frame
 
     def describe_best_frame(best_frame, style, LLM_type):
+        print(LLM_type)
         print("model describing the frame...")
         try:
             if LLM_type == 'Moondream':
                 describe_best_image = Describe().moondream(best_frame, style)
             elif LLM_type == 'Finetuned Moondream':
                 describe_best_image = Describe().moondream(best_frame,
-                                                        style,
-                                                        ft_path = "/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
+                                                           style,
+                                                           ft_path="/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
             elif LLM_type == 'Gemini':
                 describe_best_image = Describe().gemini(best_frame, style)
             else:
-                describe_best_image = 'wrong LLM_type'
+                raise Exception('wrong LLM_type')
         except Exception as e:
             print(e)
 
         return describe_best_image
 
-
     def generate_thumbnail(prompt):
         print("Stable Diffusion generating the cartoonish thumbnail...")
         # example image for now
-        return Image.open("assets/icon.png")
-    
-        # TODO: test with gpu
         from thumbnail_generator import Diffuser
-        gen_res = (1344,768)
+        gen_res = (1344, 768)
         diff = Diffuser()
 
         # option to use trained lora
-        #lora = "sdxl/1344x768-200-1600-500-cats-no"
-        #diff.pipe.load_lora_weights(f"loras/{lora}.safetensors")
+        # lora = "sdxl/1344x768-200-1600-500-cats-no"
+        # diff.pipe.load_lora_weights(f"loras/{lora}.safetensors")
 
-        diff.generate(prompt, batch_size=4, width=gen_res[0], height=gen_res[1], seed=42)
-        display(diff.get_grid())
-        return image
+        images = diff.generate(prompt, batch_size=1, width=gen_res[0], height=gen_res[1], seed=42)
+        return images[0]

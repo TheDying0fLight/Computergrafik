@@ -46,12 +46,12 @@ class PromptGenerator():
 
 
 class Describe():
-    prompt = "Generate one stable diffusion prompt for a thumbnail in a {} style of the following image."
+    prompt = "Generate only a stable diffusion prompt for a thumbnail in a {} style of the following image."
 
     def gemini(self, image, style: str) -> str:
         model = genai.GenerativeModel('gemini-1.5-flash')
         description = model.generate_content(
-            [self.prompt.format(style), image]).text
+            [self.prompt.format(style), Image.open(image)]).text
         return description
 
     def moondream(self, image, style: str, path="vikhyatk/moondream2", ft_path=None) -> str:

@@ -111,7 +111,6 @@ class Pipeline():
         return best_frame
 
     def describe_best_frame(best_frame, style, LLM_type):
-        print(LLM_type)
         print("model describing the frame...")
         try:
             if LLM_type == 'Moondream':

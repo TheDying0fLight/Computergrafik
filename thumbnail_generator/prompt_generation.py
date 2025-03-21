@@ -9,6 +9,8 @@ import numpy as np
 import concurrent.futures
 import multiprocessing
 from transformers import CLIPProcessor, CLIPModel
+from collections import deque
+
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 CUDA_LAUNCH_BLOCKING = 1
@@ -46,30 +48,25 @@ class PromptGenerator():
 
 
 class Describe():
-    prompt = "Generate only a stable diffusion prompt for a thumbnail in a {} style of the following image."
-
-    def gemini(self, image, style: str) -> str:
+    def gemini(self, img: Image, style: str) -> str:
+        prompt = "Generate a stable diffusion prompt for a thumbnail in a {} style of the following image."
         model = genai.GenerativeModel('gemini-1.5-flash')
         description = model.generate_content(
-            [self.prompt.format(style), Image.open(image)]).text
+            [prompt.format(style), img]).text
         return description
 
-    def moondream(self, image, style: str, path="vikhyatk/moondream2", ft_path=None) -> str:
+    def moondream(self, img: Image, style: str, path="vikhyatk/moondream2", ft_path=None) -> str:
         model = AutoModelForCausalLM.from_pretrained(
-            path,
-            revision=MD_REVISION,
+            "vikhyatk/moondream2",
+            revision="2025-01-09",
             trust_remote_code=True,
-            attn_implementation=None if DEVICE == "cuda" else None,
-            torch_dtype=DTYPE,
-            device_map={"": DEVICE})
-        tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
+            device_map={"": DEVICE}
+        )
+        if ft_path: model.load_state_dict(torch.load(ft_path, weights_only=True))
 
-        if ft_path:
-            model.load_state_dict(torch.load(ft_path, weights_only=True))
-
-        prompt = self.prompt.format(style)
-        prompt = [image, prompt]
-        description = model.answer_question(*prompt, tokenizer=tokenizer)
+        encoded_image = model.encode_image(img)
+        description = model.caption(encoded_image)["caption"]
+        " " + style + ", " + description
 
         return description
 
@@ -110,9 +107,6 @@ class FrameRating():
         return [frame_rating, frames]
 
     def clip(keysentence: str, vid_path: str, frames: int) -> list[list[tuple[float, Image]]]:
-        import torch
-        from collections import deque
-
         model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to(DEVICE)
         processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 

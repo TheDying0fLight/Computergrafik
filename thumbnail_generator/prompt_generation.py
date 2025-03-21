@@ -109,24 +109,63 @@ class FrameRating():
 
         return [frame_rating, frames]
 
-    def clip(keysentence: str, vid_path: str, frames: int) -> list[list, list]:
+    def clip(keysentence: str, vid_path: str, frames: int) -> list[list[tuple[float, Image]]]:
+        import torch
+        from collections import deque
+
         model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to(DEVICE)
         processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
-        frames = video_to_frames(vid_path, frames)
-        text_inputs = processor(text=keysentence, return_tensors="pt", padding=True).to(DEVICE)
-        with torch.no_grad(): text_features = model.get_text_features(**text_inputs)
 
-        def encode_image_and_calculate_similarity(image):
+        frames_list = video_to_frames(vid_path, frames)
+
+        text_inputs = processor(text=keysentence, return_tensors="pt", padding=True).to(DEVICE)
+        with torch.no_grad():
+            text_features = model.get_text_features(**text_inputs)
+
+        def encode_image(image):
             image_input = processor(images=image, return_tensors="pt", padding=True).to(DEVICE)
-            with torch.no_grad(): image_features = model.get_image_features(**image_input)
-            similarity = torch.nn.functional.cosine_similarity(text_features, image_features)
-            return similarity.item()
+            with torch.no_grad():
+                image_features = model.get_image_features(**image_input)
+            image_features = image_features.squeeze(0)
+            text_sim = torch.nn.functional.cosine_similarity(text_features, image_features.unsqueeze(0)).item()
+            return image_features, text_sim, image
 
         max_threads = multiprocessing.cpu_count()
         used_threads = min(2, max_threads // 2)
         with concurrent.futures.ThreadPoolExecutor(used_threads) as executor:
-            results = list(executor.map(encode_image_and_calculate_similarity, frames))
-        return [results, frames]
+            results = list(executor.map(encode_image, frames_list))
+
+        image_features_list, text_sims, images_list = zip(*results)
+        features_tensor = torch.stack(image_features_list)
+        norm_features = features_tensor / features_tensor.norm(dim=1, keepdim=True)
+        similarity_matrix = (norm_features @ norm_features.T).cpu().tolist()
+
+        IMAGE_GROUP_THRESHOLD = 0.9
+        N = len(images_list)
+        visited = [False] * N
+        groups = []
+
+        for i in range(N):
+            if not visited[i]:
+                component = []
+                queue = deque([i])
+                while queue:
+                    curr = queue.popleft()
+                    if visited[curr]:
+                        continue
+                    visited[curr] = True
+                    component.append(curr)
+                    for j in range(N):
+                        if not visited[j] and similarity_matrix[curr][j] >= IMAGE_GROUP_THRESHOLD:
+                            queue.append(j)
+                groups.append(component)
+
+        grouped_results = []
+        for comp in groups:
+            group_items = sorted([(text_sims[idx], images_list[idx]) for idx in comp], key=lambda x: x[0], reverse=True)
+            grouped_results.append(group_items)
+
+        return sorted(grouped_results, key=lambda group: group[0][0], reverse=True)
 
 
 def video_to_frames(video_path, frame_amt=10):

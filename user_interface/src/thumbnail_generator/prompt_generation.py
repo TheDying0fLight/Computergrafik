@@ -4,7 +4,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from IPython.display import clear_output
 from enum import Enum
-from PIL.Image import Image
+from PIL import Image
 import numpy as np
 import concurrent.futures
 import multiprocessing
@@ -24,18 +24,20 @@ class Prompts(Enum):
 
 
 class PromptGenerator():
-    def gemini(transcript: str, images: list[Image] = [], prompt=Prompts.VideoToPrompt) -> dict[str, str]:
+
+    def gemini(transcript: str, images: list[Image] = [], prompt=Prompts.SumText) -> dict[str, str]:
         model = genai.GenerativeModel('gemini-1.5-flash')
         return model.generate_content([prompt.value + transcript, *images]).text
 
-    def moondream(transcript: str, path="vikhyatk/moondream2", ft_path=None, prompt=Prompts.VideoToPrompt) -> dict[str, str]:
+    def moondream(transcript: str, path="vikhyatk/moondream2", ft_path=None, prompt=Prompts.SumText) -> dict[str, str]:
         model = AutoModelForCausalLM.from_pretrained(
             path,
             revision=MD_REVISION,
             trust_remote_code=True,
             attn_implementation=None if DEVICE == "cuda" else None,
             torch_dtype=DTYPE,
-            device_map={"": DEVICE})
+            device_map={"": DEVICE},
+            token="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")
         tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
 
         if ft_path: model.load_state_dict(torch.load(ft_path, weights_only=True))
@@ -46,12 +48,12 @@ class PromptGenerator():
 
 
 class Describe():
-    prompt = "Generate only a stable diffusion prompt for a thumbnail in a {} style of the following image."
+    prompt = "Generate one stable diffusion prompt for a thumbnail in a {} style of the following image."
 
     def gemini(self, image, style: str) -> str:
         model = genai.GenerativeModel('gemini-1.5-flash')
         description = model.generate_content(
-            [self.prompt.format(style), Image.open(image)]).text
+            [self.prompt.format(style), image]).text
         return description
 
     def moondream(self, image, style: str, path="vikhyatk/moondream2", ft_path=None) -> str:
@@ -61,7 +63,8 @@ class Describe():
             trust_remote_code=True,
             attn_implementation=None if DEVICE == "cuda" else None,
             torch_dtype=DTYPE,
-            device_map={"": DEVICE})
+            device_map={"": DEVICE},
+            token="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")
         tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
 
         if ft_path:
@@ -75,9 +78,11 @@ class Describe():
 
 
 class FrameRating():
-    def gemini(keysentence: str, vid_path: str) -> list[list, list]:
+    def gemini(keysentence: str, vid_path: str, frame_amt: int) -> list[list, list]:
         model = genai.GenerativeModel('gemini-1.5-flash')
-        frames = video_to_frames(vid_path)
+        
+        frames = video_to_frames(vid_path, frame_amt)
+        
         frame_rating = []
         for frame in frames:
             response = model.generate_content([Prompts.Rating.value + keysentence,
@@ -86,15 +91,16 @@ class FrameRating():
 
         return [frame_rating, frames]
 
-    def moondream(keysentence: str, vid_path: str, path="vikhyatk/moondream2", ft_path=None) -> list[list, list]:
-        frames = video_to_frames(vid_path)
+    def moondream(keysentence: str, vid_path: str, frame_amt: int, path="vikhyatk/moondream2", ft_path=None) -> list[list, list]:
+        frames = video_to_frames(vid_path, frame_amt)
         model = AutoModelForCausalLM.from_pretrained(
             path,
             revision=MD_REVISION,
             trust_remote_code=True,
             attn_implementation=None if DEVICE == "cuda" else None,
             torch_dtype=DTYPE,
-            device_map={"": DEVICE})
+            device_map={"": DEVICE},
+            token="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")
         tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
 
         if ft_path: model.load_state_dict(torch.load(ft_path, weights_only=True))
@@ -109,63 +115,24 @@ class FrameRating():
 
         return [frame_rating, frames]
 
-    def clip(keysentence: str, vid_path: str, frames: int) -> list[list[tuple[float, Image]]]:
-        import torch
-        from collections import deque
-
+    def clip(keysentence: str, vid_path: str, frame_amt: int) -> list[list, list]:
         model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to(DEVICE)
         processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
-
-        frames_list = video_to_frames(vid_path, frames)
-
+        frames = video_to_frames(vid_path, frame_amt)
         text_inputs = processor(text=keysentence, return_tensors="pt", padding=True).to(DEVICE)
-        with torch.no_grad():
-            text_features = model.get_text_features(**text_inputs)
+        with torch.no_grad(): text_features = model.get_text_features(**text_inputs)
 
-        def encode_image(image):
+        def encode_image_and_calculate_similarity(image):
             image_input = processor(images=image, return_tensors="pt", padding=True).to(DEVICE)
-            with torch.no_grad():
-                image_features = model.get_image_features(**image_input)
-            image_features = image_features.squeeze(0)
-            text_sim = torch.nn.functional.cosine_similarity(text_features, image_features.unsqueeze(0)).item()
-            return image_features, text_sim, image
+            with torch.no_grad(): image_features = model.get_image_features(**image_input)
+            similarity = torch.nn.functional.cosine_similarity(text_features, image_features)
+            return similarity.item()
 
         max_threads = multiprocessing.cpu_count()
         used_threads = min(2, max_threads // 2)
         with concurrent.futures.ThreadPoolExecutor(used_threads) as executor:
-            results = list(executor.map(encode_image, frames_list))
-
-        image_features_list, text_sims, images_list = zip(*results)
-        features_tensor = torch.stack(image_features_list)
-        norm_features = features_tensor / features_tensor.norm(dim=1, keepdim=True)
-        similarity_matrix = (norm_features @ norm_features.T).cpu().tolist()
-
-        IMAGE_GROUP_THRESHOLD = 0.9
-        N = len(images_list)
-        visited = [False] * N
-        groups = []
-
-        for i in range(N):
-            if not visited[i]:
-                component = []
-                queue = deque([i])
-                while queue:
-                    curr = queue.popleft()
-                    if visited[curr]:
-                        continue
-                    visited[curr] = True
-                    component.append(curr)
-                    for j in range(N):
-                        if not visited[j] and similarity_matrix[curr][j] >= IMAGE_GROUP_THRESHOLD:
-                            queue.append(j)
-                groups.append(component)
-
-        grouped_results = []
-        for comp in groups:
-            group_items = sorted([(text_sims[idx], images_list[idx]) for idx in comp], key=lambda x: x[0], reverse=True)
-            grouped_results.append(group_items)
-
-        return sorted(grouped_results, key=lambda group: group[0][0], reverse=True)
+            results = list(executor.map(encode_image_and_calculate_similarity, frames))
+        return [results, frames]
 
 
 def video_to_frames(video_path, frame_amt=10):

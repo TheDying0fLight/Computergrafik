@@ -1,14 +1,9 @@
-from diffusers import StableDiffusionPipeline
-import torch
-from PIL import Image
-# %load_ext autoreload
-# %autoreload 2
 from youtube_transcript_api import YouTubeTranscriptApi
 from thumbnail_generator import video_id, PromptGenerator, Prompts, Describe, FrameRating
 
 from yt_dlp import YoutubeDL
 import os
-import numpy as np
+from thumbnail_generator import Diffuser
 
 import nltk
 from nltk.corpus import stopwords
@@ -130,8 +125,6 @@ class Pipeline():
 
     def generate_thumbnail(prompt):
         print("Stable Diffusion generating the cartoonish thumbnail...")
-        # example image for now
-        from thumbnail_generator import Diffuser
         gen_res = (1344, 768)
         diff = Diffuser()
 

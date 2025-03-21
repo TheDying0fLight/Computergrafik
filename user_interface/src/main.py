@@ -1,6 +1,5 @@
 import flet as ft
-from PIL import Image 
-import PIL
+from PIL import Image
 from pipeline import Pipeline
 import numpy as np
 
@@ -45,7 +44,7 @@ def main(page: ft.Page):
 
     pick_files_dialog = ft.FilePicker(on_result=pick_files_result)
     selected_files = ft.Text()
-    selected_img = ft.Image(src = "assets/placeholder.png", width=300, height=300, fit=ft.ImageFit.CONTAIN)
+    selected_img = ft.Image(src = "assets/placeholder.png", width=200, height=200, fit=ft.ImageFit.CONTAIN)
 
     page.overlay.append(pick_files_dialog)
 
@@ -125,12 +124,74 @@ def main(page: ft.Page):
         vertical_alignment=ft.CrossAxisAlignment.START
     ))
 
+
+    def call_frame_selection():
+
+        if not video_url.value:
+            best_frame_column.controls.append(ft.Text("Video URL is required", color="red"))
+            best_frame_column.update()
+            return
+            
+        if not model_selection.value:
+            best_frame_column.controls.append(ft.Text("Model selection is required", color="red"))
+            best_frame_column.update()
+            return
+        
+        # Here you can handle the submission logic
+        print(f"Key Sentence: {key_sentence.value}")
+        print(f"Video URL: {video_url.value}")
+        print(f"Selected Model: {model_selection.value}")
+        
+        best_frame_src = frame_selection(key_sentence.value, video_url.value, model_selection.value, frame_amount.value)
+        page.best_frame = best_frame_src
+        best_frame = ft.Image(src=best_frame_src, width=200, height=200, fit=ft.ImageFit.CONTAIN)
+        
+        best_frame_text = ft.Text("This is the frame selected from the video.", size=20)
+        best_frame_column.controls.extend([best_frame, best_frame_text])
+        best_frame_column.update()
+        
+        return
+
+    def frame_selection(key_sentence, video_url, model_selection, frame_amount):
+        
+        # create key sentence if there user does not give one
+        best_frame_column.controls.extend([ft.Text("Model generating key sentence from transcript...", size=15)])
+        best_frame_column.update()
+
+        if not key_sentence:
+            if model_selection == "CLIP":
+                key_sentence = Pipeline.generate_key_sentence(video_url, "Gemini", frame_amount)
+            else:
+                key_sentence = Pipeline.generate_key_sentence(video_url, model_selection, frame_amount)
+
+        print("KEY SENTENCE:", key_sentence)
+
+        best_frame_column.controls.extend([ft.Text(f"Downloading the video and extracting {frame_amount} frames...", size=15)])
+        best_frame_column.controls.extend([ft.Text(f"Model rating the frames...", size=15)])
+        best_frame_column.update()
+        
+        frame_rating, frames = Pipeline.rate_frames(key_sentence, video_url, model_selection, frame_amount)
+        print("FRAME RATING:", frame_rating)
+        print("FRAMES:", len(frames))
+    
+        if frames is None or frame_rating is None:
+            raise ValueError("Failed to generate frame ratings or frames. Please check the input parameters.")
+
+        selected_frame = Pipeline.get_best_frame(frame_rating, frames)
+        #print(selected_frame)
+        selected_frame_src = "assets/best_frame.png"
+        with Image.fromarray(np.uint8(selected_frame)).convert('RGB') as f:
+            f = f.save(selected_frame_src)
+
+        return selected_frame_src
+
+
     ##################################################
     # step 2: create cartoonish version
     ##################################################
 
     heading_SD = ft.Text("Step 2: Create Cartoonish Thumbnail", size=30)
-    instruction_SD = ft.Text("Optional: Insert Stable Diffusion styles, separated by commata, and/or choose the model.", size=20)
+    instruction_SD = ft.Text("Insert Stable Diffusion styles, separated by commata, and choose the model to generate the prompt for Stable Diffusion.", size=20)
     style = ft.TextField(label="Styles, comma-separated, e.g.: photorealistic, gothic, cyberpunk", width=400)
     model_selection_2 = ft.Dropdown(
         label="Select Model to describe the frame",
@@ -148,75 +209,12 @@ def main(page: ft.Page):
     page.update()
     
 
-    def call_frame_selection():
-
-        if not video_url.value:
-            best_frame_column.controls.append(ft.Text("Video URL is required", color="red"))
-            best_frame_column.update()
-            return
-            
-        if not model_selection.value:
-            best_frame_column.controls.append(ft.Text("Model selection is required", color="red"))
-            best_frame_column.update()
-            return
-        
-        progress_status = ft.Text("Selecting frames...", size=20, data=0)
-        best_frame_column.controls.append(progress_status)
-        best_frame_column.update()
-
-        # Here you can handle the submission logic
-        print(f"Key Sentence: {key_sentence.value}")
-        print(f"Video URL: {video_url.value}")
-        print(f"Selected Model: {model_selection.value}")
-        
-        best_frame_src = frame_selection(key_sentence.value, video_url.value, model_selection.value, frame_amount.value)
-        page.best_frame = best_frame_src
-        best_frame = ft.Image(src=best_frame_src, width=100, height=100, fit=ft.ImageFit.CONTAIN)
-        
-        best_frame_text = ft.Text("This is the frame selected from the video.", size=20)
-        best_frame_column.controls.extend([best_frame, best_frame_text])
-        best_frame_column.update()
-        
-        return
-
-    def frame_selection(key_sentence, video_url, model_selection, frame_amount):
-        
-        if model_selection == "CLIP":
-            # clip only uses embedding comparisons for ratings
-            frame_rating, frames = Pipeline.rate_frames(key_sentence, video_url, model_selection, frame_amount)
-            print("FRAME RATING:", frame_rating)
-            print("FRAMES:", frames)
-
-        if model_selection != "CLIP" and not key_sentence:
-            # other models (LLMs) need a key sentence with which they can compare and rate the frames
-            key_sentence = Pipeline.generate_key_sentence(video_url, model_selection, frame_amount)
-            frame_rating, frames = Pipeline.rate_frames(key_sentence, video_url, model_selection, frame_amount)
-            
-            print("KEY SENTENCE:", key_sentence)
-            print("FRAME RATING:", frame_rating)
-            print("FRAMES:", len(frames))
-        
-        if frames is None or frame_rating is None:
-            raise ValueError("Failed to generate frame ratings or frames. Please check the input parameters.")
-
-        selected_frame = Pipeline.get_best_frame(frame_rating, frames)
-        #print(selected_frame)
-        selected_frame_src = "assets/best_frame.png"
-        with Image.fromarray(np.uint8(selected_frame)).convert('RGB') as f:
-            f = f.save(selected_frame_src)
-
-        return selected_frame_src
-
-
     def call_thumbnail_generation(style, model_selection):
                 
         if page.own_frame is not None:
             page.best_frame = page.own_frame
 
-        explanation_SD = ft.Text("Prompt is created and Stable Diffusion creates the cartoonish version...", size=20)
-        page.add(explanation_SD)
-
-        thumbnail_src = generate_thumbnail(style, model_selection, page.best_frame)
+        thumbnail_src = thumbnail_generation(style, model_selection, page.best_frame)
         thumbnail = ft.Image(src=thumbnail_src, width=100, height=100, fit=ft.ImageFit.CONTAIN)
         thumbnail_text = ft.Text("This is the cartoonish thumbnail generated by Stable Diffusion.", size=20)
         page.add(thumbnail, thumbnail_text)
@@ -245,8 +243,12 @@ def main(page: ft.Page):
 
         return
     
-    def generate_thumbnail(style, model_selection, best_frame):
+    def thumbnail_generation(style, model_selection, best_frame):
+        
+        page.add(ft.Text("Model describing the frame...", size=15))
         frame_prompt = Pipeline.describe_best_frame(style, model_selection, best_frame)
+        
+        page.add(ft.Text("Stable Diffusion creating the cartoonish version...", size=15))
         thumbnail = Pipeline.generate_thumbnail(frame_prompt)
         thumbnail_src = "assets/thumbnail.png"
         with Image.fromarray(np.uint8(thumbnail)).convert('RGB') as f:

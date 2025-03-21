@@ -40,7 +40,7 @@ class Pipeline():
         transcript = [w.lower() for w in transcript if w not in stop_words and w in words]
         transcript = ' '.join(transcript)
         
-        print("model generating key sentence with transcript and frames...")
+        print("model generating key sentence from transcript...")
         sentence = ""
         try:
             if LLM_type == 'Moondream':
@@ -60,6 +60,8 @@ class Pipeline():
 
     def rate_frames(key_sentence, video_url, LLM_type, frame_amt, ext = "webm", res = 480):
         
+        print(f"downloading the video and extracting {frame_amt} frames...")
+        
         id = Pipeline.preprocess_url(video_url)
 
         opts = {
@@ -76,6 +78,8 @@ class Pipeline():
 
         yt_str = "https://www.youtube.com/watch?v="
         with YoutubeDL(opts) as ydl: ydl.download(yt_str + id)
+
+        print("model rating frames...")
 
         if LLM_type == 'CLIP':
             [frame_rating, frames] = FrameRating.clip(key_sentence, f"{id}.{ext}", frame_amt)
@@ -96,7 +100,7 @@ class Pipeline():
             print(e)
     
         frame_rating = [int(x.strip()) for x in frame_rating if isinstance(x, str) and x.strip().isdigit()]
-        print("FRAME RATING IN PIPELINE.py:", frame_rating)
+        #print("FRAME RATING IN PIPELINE.py:", frame_rating)
 
         os.remove(f"{id}.{ext}")
         return frame_rating, frames
@@ -108,7 +112,7 @@ class Pipeline():
         return best_frame
 
     def describe_best_frame(best_frame, style, LLM_type):
-        
+        print("model describing the frame...")
         try:
             if LLM_type == 'Moondream':
                 describe_best_image = Describe().moondream(best_frame, style)
@@ -127,6 +131,7 @@ class Pipeline():
 
 
     def generate_thumbnail(prompt):
+        print("Stable Diffusion generating the cartoonish thumbnail...")
         # example image for now
         return Image.open("assets/icon.png")
     
@@ -142,50 +147,3 @@ class Pipeline():
         diff.generate(prompt, batch_size=4, width=gen_res[0], height=gen_res[1], seed=42)
         display(diff.get_grid())
         return image
-
-
-
-def generate_key_sentence(video_url, LLM_type, frame_amt=20, combine_emb="mul"):
-        
-        yt_str = "https://www.youtube.com/watch?v="
-        stop_words = set(stopwords.words('english'))
-        words = set(nltk.corpus.words.words())
-
-        id = video_id(video_url) #(video_url.replace(yt_str, ""))
-        print(id)
-        transcript_list = YouTubeTranscriptApi.get_transcript(id)
-        transcript = ' '.join([section['text'] for section in transcript_list])
-
-        transcript = word_tokenize(transcript)
-        transcript = [w.lower() for w in transcript if w not in stop_words and w in words]
-        transcript = ' '.join(transcript)
-        print(transcript)
-
-        try:
-            if LLM_type == 'moondream':
-                sentence = PromptGenerator.moondream(transcript, frame_amt, combine_emb, prompt=Prompts.SumText)
-            elif LLM_type == 'moondream_finetuned':
-                sentence = PromptGenerator.moondream(transcript, frame_amt, combine_emb,
-                                                ft_path = "/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame",
-                                                prompt=Prompts.SumText)
-            elif LLM_type == 'gemini':
-                sentence = PromptGenerator.gemini(transcript, prompt=Prompts.SumText)
-            else:
-                sentence = 'wrong LLM_type'
-        except Exception as e:
-            print(e)
-
-        return sentence
-
-
-# Example usage
-if __name__ == "__main__":
-    pipeline = Pipeline()
-    prompt = "A beautiful landscape painting"
-    batch_size = 4
-    width = 512
-    height = 512
-    seed = 42
-
-    images = pipeline.generate_images(prompt, batch_size, width, height, seed)
-    pipeline.display_images(images)

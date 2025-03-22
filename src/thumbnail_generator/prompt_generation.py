@@ -4,12 +4,11 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from IPython.display import clear_output
 from enum import Enum
-from PIL.Image import Image
+import PIL.Image
 import numpy as np
 import concurrent.futures
 import multiprocessing
 from transformers import CLIPProcessor, CLIPModel
-from collections import deque
 
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -26,7 +25,7 @@ class Prompts(Enum):
 
 
 class PromptGenerator():
-    def gemini(transcript: str, images: list[Image] = [], prompt=Prompts.VideoToPrompt) -> dict[str, str]:
+    def gemini(transcript: str, images: list[PIL.Image.Image] = [], prompt=Prompts.VideoToPrompt) -> dict[str, str]:
         model = genai.GenerativeModel('gemini-1.5-flash')
         return model.generate_content([prompt.value + transcript, *images]).text
 
@@ -48,14 +47,14 @@ class PromptGenerator():
 
 
 class Describe():
-    def gemini(self, img: Image, style: str) -> str:
+    def gemini(self, img: PIL.Image.Image, style: str) -> str:
         prompt = "Generate a stable diffusion prompt for a thumbnail in a {} style of the following image."
         model = genai.GenerativeModel('gemini-1.5-flash')
         description = model.generate_content(
             [prompt.format(style), img]).text
         return description
 
-    def moondream(self, img: Image, style: str, path="vikhyatk/moondream2", ft_path=None) -> str:
+    def moondream(self, img: PIL.Image.Image, style: str, path="vikhyatk/moondream2", ft_path=None) -> str:
         model = AutoModelForCausalLM.from_pretrained(
             "vikhyatk/moondream2",
             revision="2025-01-09",
@@ -72,19 +71,20 @@ class Describe():
 
 
 class FrameRating():
-    def gemini(keysentence: str, vid_path: str) -> list[list, list]:
+    def gemini(keysentence: str, frames: int, vid_path: str) -> list[list[tuple[float, PIL.Image.Image]]]:
         model = genai.GenerativeModel('gemini-1.5-flash')
-        frames = video_to_frames(vid_path)
-        frame_rating = []
+        frames = video_to_frames(vid_path, frames)
+        groups = []
         for frame in frames:
             response = model.generate_content([Prompts.Rating.value + keysentence,
-                                              Image.fromarray(np.uint8(frame)).convert('RGB')]).text
-            frame_rating.append(response)
+                                              PIL.Image.fromarray(np.uint8(frame)).convert('RGB')]).text
+            try: rating = float(response)
+            except ValueError: rating = 0.0
+            groups.append([(rating, frame)])
+        return groups
 
-        return [frame_rating, frames]
-
-    def moondream(keysentence: str, vid_path: str, path="vikhyatk/moondream2", ft_path=None) -> list[list, list]:
-        frames = video_to_frames(vid_path)
+    def moondream(keysentence: str, vid_path: str, frames: int, path="vikhyatk/moondream2", ft_path=None) -> list[list[tuple[float, PIL.Image]]]:
+        frames = video_to_frames(vid_path, frames)
         model = AutoModelForCausalLM.from_pretrained(
             path,
             revision=MD_REVISION,
@@ -93,20 +93,20 @@ class FrameRating():
             torch_dtype=DTYPE,
             device_map={"": DEVICE})
         tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
-
-        if ft_path: model.load_state_dict(torch.load(ft_path, weights_only=True))
+        if ft_path:
+            model.load_state_dict(torch.load(ft_path, weights_only=True))
 
         prompt = Prompts.Rating.value + keysentence
-        frame_rating = []
-
+        groups = []
         for frame in frames:
-            prompt_frame = [frame, prompt]
-            response = model.answer_question(*prompt_frame, tokenizer=tokenizer)
-            frame_rating.append(response)
+            image = PIL.Image.fromarray(np.uint8(frame)).convert('RGB')
+            response = model.answer_question(frame, prompt, tokenizer=tokenizer)
+            try: rating = float(response)
+            except ValueError: rating = 0.0
+            groups.append([(rating, image)])
+        return groups
 
-        return [frame_rating, frames]
-
-    def clip(keysentence: str, vid_path: str, frames: int) -> list[list[tuple[float, Image]]]:
+    def clip(keysentence: str, vid_path: str, frames: int) -> list[list[tuple[float, PIL.Image.Image]]]:
         model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to(DEVICE)
         processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 
@@ -116,7 +116,8 @@ class FrameRating():
         with torch.no_grad():
             text_features = model.get_text_features(**text_inputs)
 
-        def encode_image(image):
+        def encode_image(frame):
+            image = PIL.Image.fromarray(np.uint8(frame)).convert('RGB')
             image_input = processor(images=image, return_tensors="pt", padding=True).to(DEVICE)
             with torch.no_grad():
                 image_features = model.get_image_features(**image_input)
@@ -137,14 +138,14 @@ class FrameRating():
         IMAGE_GROUP_THRESHOLD = 0.9
         N = len(images_list)
         visited = [False] * N
-        groups = []
+        groups_indices = []
 
         for i in range(N):
             if not visited[i]:
                 component = []
-                queue = deque([i])
+                queue = [i]
                 while queue:
-                    curr = queue.popleft()
+                    curr = queue.pop(0)
                     if visited[curr]:
                         continue
                     visited[curr] = True
@@ -152,11 +153,13 @@ class FrameRating():
                     for j in range(N):
                         if not visited[j] and similarity_matrix[curr][j] >= IMAGE_GROUP_THRESHOLD:
                             queue.append(j)
-                groups.append(component)
+                groups_indices.append(component)
 
         grouped_results = []
-        for comp in groups:
-            group_items = sorted([(text_sims[idx], images_list[idx]) for idx in comp], key=lambda x: x[0], reverse=True)
+        for comp in groups_indices:
+            # For each group, sort items in descending order of similarity score.
+            group_items = sorted([(text_sims[idx], images_list[idx]) for idx in comp],
+                                 key=lambda x: x[0], reverse=True)
             grouped_results.append(group_items)
 
         return sorted(grouped_results, key=lambda group: group[0][0], reverse=True)

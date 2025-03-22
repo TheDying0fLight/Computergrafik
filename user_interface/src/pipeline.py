@@ -55,9 +55,7 @@ class Pipeline():
     def rate_frames(key_sentence, video_url, LLM_type, frame_amt, ext="webm", res=480):
 
         print(f"downloading the video and extracting {frame_amt} frames...")
-
         id = Pipeline.preprocess_url(video_url)
-
         opts = {
             'format': f'bestvideo[ext={ext}][height={res}]',
             'geo_bypass': True,
@@ -67,37 +65,33 @@ class Pipeline():
             'quiet': True
         }
 
-        frame_rating = [0]
-        frames = []
-
         yt_str = "https://www.youtube.com/watch?v="
         with YoutubeDL(opts) as ydl: ydl.download(yt_str + id)
 
+        # frame_rating = [0]
+        # frames = []
+
         print("model rating frames...")
 
-        if LLM_type == 'CLIP':
-            [frame_rating, frames] = FrameRating.clip(key_sentence, f"{id}.{ext}", frame_amt)
-            print("FRAME RATING:", list(sorted(frame_rating)))
-
         # while max(frame_rating) < 80:
-        try:
-            if LLM_type == 'Moondream':
-                [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt)
-            elif LLM_type == 'Finetuned Moondream':
-                [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt,
-                                                               ft_path="/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
-            elif LLM_type == 'Gemini':
-                [frame_rating, frames] = FrameRating.gemini(key_sentence, f"{id}.{ext}", frame_amt)
-            else:
-                print('wrong LLM_type')
-        except Exception as e:
-            print(e)
+        # elif LLM_type == 'Moondream':
+        #     [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt)
+        #     frame_rating = [int(x.strip()) for x in frame_rating if isinstance(x, str) and x.strip().isdigit()]
+        #     rating = list(zipped(frame_rating, frames))
+        # elif LLM_type == 'Finetuned Moondream':
+        #     [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt,
+        #                                                     ft_path="/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
+        # elif LLM_type == 'Gemini':
+        #     [frame_rating, frames] = FrameRating.gemini(key_sentence, f"{id}.{ext}", frame_amt)
+        # else:
+        #     print('wrong LLM_type')
 
-        frame_rating = [int(x.strip()) for x in frame_rating if isinstance(x, str) and x.strip().isdigit()]
+        if LLM_type == 'CLIP':
+            rating = FrameRating.clip(key_sentence, f"{id}.{ext}", frame_amt)
         # print("FRAME RATING IN PIPELINE.py:", frame_rating)
 
         os.remove(f"{id}.{ext}")
-        return frame_rating, frames
+        return rating
 
     def get_best_frame(frame_rating, frames):
         zipped = list(zip(frame_rating, frames))
@@ -105,17 +99,17 @@ class Pipeline():
         best_frame = s[0][1]
         return best_frame
 
-    def describe_best_frame(best_frame, style, LLM_type):
+    def describe_frame(frame, style, LLM_type):
         print("model describing the frame...")
         try:
             if LLM_type == 'Moondream':
-                describe_best_image = Describe().moondream(best_frame, style)
+                describe_best_image = Describe().moondream(frame, style)
             elif LLM_type == 'Finetuned Moondream':
-                describe_best_image = Describe().moondream(best_frame,
+                describe_best_image = Describe().moondream(frame,
                                                            style,
                                                            ft_path="/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
             elif LLM_type == 'Gemini':
-                describe_best_image = Describe().gemini(best_frame, style)
+                describe_best_image = Describe().gemini(frame, style)
             else:
                 raise Exception('wrong LLM_type')
         except Exception as e:

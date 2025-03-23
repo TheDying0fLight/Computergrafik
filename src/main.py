@@ -3,6 +3,8 @@ from PIL import Image
 from pipeline import Pipeline
 import numpy as np
 import os
+import io
+import base64
 
 def main(page: ft.Page):
     page.pipeline_status = "ready"
@@ -123,7 +125,7 @@ def main(page: ft.Page):
         if e.files:
             selected_files.value = ", ".join(f.name for f in e.files)
             selected_files.update()
-            selected_img.content = ft.Image(src=e.files[0].path, width=200, height=200, fit=ft.ImageFit.CONTAIN)
+            selected_img.content = ft.Image(src=e.files[0].path, width=160, height=90, fit=ft.ImageFit.CONTAIN)
             selected_img.update()
             page.own_frame = e.files[0].path
         else:
@@ -165,7 +167,7 @@ def main(page: ft.Page):
 
         best_frame_column.controls.clear()
         best_frame_column.controls.append(ft.Text("Select a frame from the options below:", size=20))
-        frame_options = []  # reset list of frame containers
+        frame_options = []
         for idx, group in enumerate(groups):
             if not group:
                 continue
@@ -282,16 +284,15 @@ def main(page: ft.Page):
             sd_out.controls.append(ft.Text("Please select a frame first.", color="red"))
             sd_out.update()
             return
-        thumbnail_src = thumbnail_generation(style, model, page.best_frame)
+        thumb_b64 = thumbnail_generation(style, model, page.best_frame)
         sd_out.controls.clear()
-        sd_out.controls.append(ft.Image(src=thumbnail_src, width=800, height=450, fit=ft.ImageFit.CONTAIN))
-        sd_out.controls.append(ft.Text("Thumbnail generated.", size=20))
+        sd_out.controls.append(ft.Image(src_base64=thumb_b64, width=800, height=450, fit=ft.ImageFit.CONTAIN))
         page.update()
 
         def save_file_result(e: ft.FilePickerResultEvent):
             if e.path:
                 try:
-                    Image.open(thumbnail_src).save(e.path)
+                    Image.open(io.BytesIO(base64.b64decode(thumb_b64))).save(e.path)
                 except Exception as e:
                     print("Error saving file:", e)
             page.update()
@@ -304,17 +305,25 @@ def main(page: ft.Page):
         ])
         page.update()
 
-    def thumbnail_generation(style, model, best_frame):
+    def thumbnail_generation(style, model, frame):
         sd_out.controls.clear()
-        best_frame_img = Image.open(best_frame)
+        # Convert the base64 image back to a PIL image
+        pil_frame = Image.open(frame)
         sd_out.controls.append(ft.Text("Model describing the frame...", size=15))
         page.update()
-        frame_prompt = Pipeline.describe_frame(best_frame_img, style, model)
-        sd_out.controls[-1].value = f"Model describing the frame: {frame_prompt}"
+        frame_prompt = Pipeline.describe_frame(pil_frame, style, model)
+        sd_out.controls[-1].value = f"Frame description: {frame_prompt}"
         page.update()
         thumbnail = Pipeline.generate_thumbnail(frame_prompt)
-        thumbnail_src = "assets/thumbnail.png"
-        Image.fromarray(np.uint8(thumbnail)).convert('RGB').save(thumbnail_src)
-        return thumbnail_src
+        pil_thumbnail = Image.fromarray(np.uint8(thumbnail)).convert('RGB')
+        thumbnail_b64 = pil_to_base64(pil_thumbnail)
+        return thumbnail_b64
+
+
+def pil_to_base64(pil_image, format="PNG"):
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format=format)
+    img_bytes = buffer.getvalue()
+    return base64.b64encode(img_bytes).decode("utf-8")
 
 ft.app(main)

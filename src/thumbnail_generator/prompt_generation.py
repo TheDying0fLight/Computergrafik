@@ -48,7 +48,7 @@ class PromptGenerator():
 
 class Describe():
     def gemini(self, img: PIL.Image.Image, style: str) -> str:
-        prompt = "Generate a stable diffusion prompt for a thumbnail in a {} style of the following image."
+        prompt = "Generate a stable diffusion prompt for a thumbnail in a {} style of the following image. The answer should only contain the prompt"
         model = genai.GenerativeModel('gemini-1.5-flash')
         description = model.generate_content(
             [prompt.format(style), img]).text
@@ -65,7 +65,7 @@ class Describe():
 
         encoded_image = model.encode_image(img)
         description = model.caption(encoded_image)["caption"]
-        " " + style + ", " + description
+        description = " " + style + ", " + description
 
         return description
 

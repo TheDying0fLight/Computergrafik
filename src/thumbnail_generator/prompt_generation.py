@@ -71,7 +71,7 @@ class Describe():
 
 
 class FrameRating():
-    def gemini(keysentence: str, frames: int, vid_path: str) -> list[list[tuple[float, PIL.Image.Image]]]:
+    def gemini(keysentence: str, vid_path: str, frames: int) -> list[list[tuple[float, PIL.Image.Image]]]:
         model = genai.GenerativeModel('gemini-1.5-flash')
         frames = video_to_frames(vid_path, frames)
         groups = []
@@ -81,7 +81,7 @@ class FrameRating():
             try: rating = float(response)
             except ValueError: rating = 0.0
             groups.append([(rating, frame)])
-        return groups
+        return sorted(groups, key=lambda group: group[0][0], reverse=True)
 
     def moondream(keysentence: str, vid_path: str, frames: int, path="vikhyatk/moondream2", ft_path=None) -> list[list[tuple[float, PIL.Image]]]:
         frames = video_to_frames(vid_path, frames)
@@ -157,7 +157,6 @@ class FrameRating():
 
         grouped_results = []
         for comp in groups_indices:
-            # For each group, sort items in descending order of similarity score.
             group_items = sorted([(text_sims[idx], images_list[idx]) for idx in comp],
                                  key=lambda x: x[0], reverse=True)
             grouped_results.append(group_items)

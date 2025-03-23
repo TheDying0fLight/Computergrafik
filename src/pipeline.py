@@ -71,14 +71,12 @@ class Pipeline():
 
         # while max(frame_rating) < 80:
         if LLM_type == 'Moondream':
-            [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt)
-            frame_rating = [int(x.strip()) for x in frame_rating if isinstance(x, str) and x.strip().isdigit()]
-            rating = list(zip(frame_rating, frames))
+            rating = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt)
         elif LLM_type == 'Finetuned Moondream':
-            [frame_rating, frames] = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt,
+            rating = FrameRating.moondream(key_sentence, f"{id}.{ext}", frame_amt,
                                                             ft_path="/content/drive/MyDrive/moondream_ft_moon_mean_eps10_bs8_1frame")
         elif LLM_type == 'Gemini':
-            [frame_rating, frames] = FrameRating.gemini(key_sentence, f"{id}.{ext}", frame_amt)
+            rating = FrameRating.gemini(key_sentence, f"{id}.{ext}", frame_amt)
         elif LLM_type == 'CLIP':
             rating = FrameRating.clip(key_sentence, f"{id}.{ext}", frame_amt)
         else:

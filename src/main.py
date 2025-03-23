@@ -13,6 +13,9 @@ def main(page: ft.Page):
     page.best_frame = None
     page.own_frame = None
 
+    # This list will hold the containers for each frame option
+    frame_options = []
+
     # --- Header ---
     header = ft.Column(
         controls=[
@@ -60,8 +63,25 @@ def main(page: ft.Page):
     )
     video_url = ft.TextField(label="Video URL", width=400)
     key_sentence = ft.TextField(label="Key Sentence (optional)", width=400)
-    frame_amount_text = ft.Text("Amount of frames (default: 10)", size=15)
-    frame_amount = ft.Slider(min=0, max=1000, divisions=100, value=20, label="{value}", width=500)
+
+    # Slider using logarithmic scale:
+    # The slider value will be between 0 and 3, so effective frame amount = 10^(slider.value)
+    frame_amount_text = ft.Text("Amount of frames: 10", size=15)
+    frame_amount = ft.Slider(
+        min=0,
+        max=3,
+        divisions=300,
+        value=1,
+        label="{value}",
+        width=500,
+        on_change=lambda e: update_frame_amount_text(frame_amount, frame_amount_text)
+    )
+
+    def update_frame_amount_text(slider, text_widget):
+        effective_value = int(10 ** slider.value)
+        text_widget.value = f"Amount of frames: {effective_value}"
+        text_widget.update()
+
     model_selection = ft.Dropdown(
         label="Select Model to Rate the Frames",
         options=[
@@ -73,7 +93,7 @@ def main(page: ft.Page):
         width=400,
         key="model_selection"
     )
-    submit_button = ft.ElevatedButton(text="Start Frame Selection", on_click=lambda e: call_frame_selection())
+    submit_button = ft.ElevatedButton(text="Rate Frames", on_click=lambda _: call_frame_selection())
     model_frame_column = ft.Column(
         controls=[model_frame_heading, model_frame_instruction, video_url, key_sentence,
                   frame_amount_text, frame_amount, model_selection, submit_button],
@@ -122,7 +142,9 @@ def main(page: ft.Page):
     page.add(best_frame_column)
 
     def call_frame_selection():
+        nonlocal frame_options
         best_frame_column.controls.clear()
+        frame_options.clear()
 
         if not video_url.value:
             best_frame_column.controls.append(ft.Text("Video URL is required", color="red"))
@@ -133,9 +155,8 @@ def main(page: ft.Page):
             best_frame_column.update()
             return
 
-        # Call the updated frame selection which now returns groups of frames
         groups = frame_selection(
-            key_sentence.value, video_url.value, model_selection.value, frame_amount.value, best_frame_column
+            key_sentence.value, video_url.value, model_selection.value, int(10 ** frame_amount.value), best_frame_column
         )
         if not groups:
             best_frame_column.controls.append(ft.Text("No frame groups returned.", color="red"))
@@ -144,45 +165,68 @@ def main(page: ft.Page):
 
         best_frame_column.controls.clear()
         best_frame_column.controls.append(ft.Text("Select a frame from the options below:", size=20))
-        # For each group, display the first image as a selectable button.
-        group_buttons = []
-        print(groups)
+        frame_options = []  # reset list of frame containers
         for idx, group in enumerate(groups):
             if not group:
                 continue
-            print(group)
-            score, img = group[0]  # Use the first image from each group
+            score, img = group[0]
             temp_file = f"assets/group_{idx}.png"
-            # Ensure assets directory exists
             os.makedirs("assets", exist_ok=True)
             Image.fromarray(np.uint8(img)).convert('RGB').save(temp_file)
-            btn = ft.ElevatedButton(
-                content=ft.Image(src=temp_file, width=200, height=200, fit=ft.ImageFit.CONTAIN),
-                on_click=lambda e, file=temp_file: select_group_frame(file)
+            frame_image = ft.Image(src=temp_file, width=160, height=90, fit=ft.ImageFit.CONTAIN)
+            rating_text = ft.Text(f"Rating: {score:.2f}", size=15)
+            frame_column = ft.Column(
+                controls=[frame_image, rating_text],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
             )
-            group_buttons.append(btn)
-        best_frame_column.controls.append(ft.Row(controls=group_buttons, wrap=True))
+            container = ft.Container(
+                content=frame_column,
+                padding=5,
+                border=ft.border.all(1, "lightgray"),
+                border_radius=5,
+                key=f"container_{idx}"
+            )
+            # When clicked, call select_group_frame passing the temp_file and this container
+            container.on_click = lambda e, file=temp_file, cont=container: select_group_frame(file, cont)
+            frame_options.append(container)
+
+        best_frame_column.controls.append(
+            ft.Row(controls=frame_options, wrap=True, width=1000, scroll=ft.ScrollMode.AUTO, height=400)
+        )
         best_frame_column.update()
 
-    def select_group_frame(selected_file):
-        # Save the selected frame as the best frame
+    def select_group_frame(selected_file, selected_container):
         page.best_frame = selected_file
-        best_frame_column.controls.clear()
-        best_frame_column.controls.extend([
-            ft.Image(src=selected_file, width=200, height=200, fit=ft.ImageFit.CONTAIN),
-            ft.Text("This is the selected frame from the video.", size=20)
-        ])
+        for cont in frame_options:
+            if cont.key == selected_container.key:
+                cont.border = ft.border.all(3, "blue")
+            else:
+                cont.border = ft.border.all(1, "lightgray")
+            cont.update()
+        if not any(isinstance(ctrl, ft.Column) and ctrl.key == "selected_preview" for ctrl in best_frame_column.controls):
+            preview = ft.Column(
+                controls=[
+                    ft.Image(src=selected_file, width=160*3, height=90*3, fit=ft.ImageFit.CONTAIN),
+                    ft.Text("This is your selected frame.", size=20)
+                ],
+                key="selected_preview",
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            )
+            best_frame_column.controls.append(preview)
+        else:
+            for ctrl in best_frame_column.controls:
+                if isinstance(ctrl, ft.Column) and ctrl.key == "selected_preview":
+                    ctrl.controls[0].src = selected_file
+                    ctrl.controls[0].update()
+                    break
         best_frame_column.update()
 
     def frame_selection(ks, url, model, amount, feedback_column):
-        # Provide progress updates to the feedback_column
         feedback_column.controls.append(ft.Text("Generating key sentence...", size=15))
         feedback_column.update()
 
-        # If no key sentence provided, generate one.
         if not ks:
             ks = Pipeline.generate_key_sentence(url, "Gemini" if model == "CLIP" else model, amount)
-        # Now, rate_frames returns groups of frames (list of lists of (score, image) tuples)
         feedback_column.controls.append(ft.Text(f"Downloading video and extracting {amount} frames...", size=15))
         feedback_column.controls.append(ft.Text("Rating frames...", size=15))
         feedback_column.update()

@@ -83,7 +83,8 @@ class FrameRating():
             groups.append([(rating, frame)])
         return sorted(groups, key=lambda group: group[0][0], reverse=True)
 
-    def moondream(keysentence: str, vid_path: str, frames: int, path="vikhyatk/moondream2", ft_path=None) -> list[list[tuple[float, PIL.Image]]]:
+    def moondream(keysentence: str, vid_path: str, frames: int, path="vikhyatk/moondream2", ft_path=None
+                  ) -> list[list[tuple[float, PIL.Image.Image]]]:
         frames = video_to_frames(vid_path, frames)
         model = AutoModelForCausalLM.from_pretrained(
             path,

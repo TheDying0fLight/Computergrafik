@@ -1,4 +1,5 @@
-from diffusers import StableDiffusion3Pipeline, AutoencoderTiny, SanaPipeline, DiffusionPipeline
+from diffusers import SanaPipeline, DiffusionPipeline, AutoPipelineForImage2Image
+from diffusers import StableDiffusion3Pipeline, AutoencoderTiny
 from PIL import Image
 from pathlib import Path
 import numpy as np
@@ -7,6 +8,18 @@ import pandas
 import torch
 from IPython.display import clear_output, display
 from compel import Compel, ReturnedEmbeddingsType
+
+
+def img_to_img(prompt: str, image: Image.Image, strength: float = 0.6, guidance_scale: float = 7.5):
+    device = "cuda"
+    model_id_or_path = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+    # model_id_or_path = "stabilityai/stable-diffusion-xl-base-1.0"
+    pipe = AutoPipelineForImage2Image.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
+    pipe = pipe.to(device)
+    pipe.enable_model_cpu_offload()
+    init_image = image.resize((1344, 768))
+    images = pipe(prompt=prompt, image=init_image, strength=strength, guidance_scale=guidance_scale).images
+    return images
 
 class Diffuser():
     def __init__(self):
@@ -18,6 +31,7 @@ class Diffuser():
                  steps = 25,
                  guidance = 7,
                  batch_size = 1,
+                 image = None,
                  height = None,
                  width = None,
                  seed = None):
@@ -38,7 +52,8 @@ class Diffuser():
             height = height if not isSana else 1024,
             width = width if not isSana else 1024,
             generator = generator,
-            negative_prompt = [negative_prompt] * batch_size
+            negative_prompt = [negative_prompt] * batch_size,
+            image = image
         ).images
         return self.images
 

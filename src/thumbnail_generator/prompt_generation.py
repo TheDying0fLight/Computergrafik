@@ -31,19 +31,17 @@ class PromptGenerator():
 
     def moondream(transcript: str, path="vikhyatk/moondream2", ft_path=None, prompt=Prompts.VideoToPrompt) -> dict[str, str]:
         model = AutoModelForCausalLM.from_pretrained(
-            path,
-            revision=MD_REVISION,
+            "vikhyatk/moondream2",
+            revision="2025-01-09",
             trust_remote_code=True,
-            attn_implementation=None if DEVICE == "cuda" else None,
-            torch_dtype=DTYPE,
-            device_map={"": DEVICE})
-        tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
+            device_map={"": DEVICE}
+        )
 
         if ft_path: model.load_state_dict(torch.load(ft_path, weights_only=True))
 
         pos = [prompt.value + transcript]
 
-        return model.answer_question(*pos, tokenizer=tokenizer)
+        return model.answer_question(*pos)
 
 
 class Describe():
@@ -87,12 +85,11 @@ class FrameRating():
                   ) -> list[list[tuple[float, PIL.Image.Image]]]:
         frames = video_to_frames(vid_path, frames)
         model = AutoModelForCausalLM.from_pretrained(
-            path,
-            revision=MD_REVISION,
+            "vikhyatk/moondream2",
+            revision="2025-01-09",
             trust_remote_code=True,
-            attn_implementation=None if DEVICE == "cuda" else None,
-            torch_dtype=DTYPE,
-            device_map={"": DEVICE})
+            device_map={"": DEVICE}
+        )
         tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2", revision=MD_REVISION)
         if ft_path:
             model.load_state_dict(torch.load(ft_path, weights_only=True))

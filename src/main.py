@@ -2,7 +2,6 @@ import flet as ft
 from PIL import Image
 from pipeline import Pipeline
 import numpy as np
-import os
 import io
 import base64
 
@@ -232,10 +231,8 @@ def main(page: ft.Page):
         for idx, group in enumerate(groups):
             if not group: continue
             score, img = group[0]
-            temp_file = f"assets/group_{idx}.png"
-            os.makedirs("assets", exist_ok=True)
-            Image.fromarray(np.uint8(img)).convert('RGB').save(temp_file)
-            frame_image = ft.Image(src=temp_file, width=160, height=90, fit=ft.ImageFit.CONTAIN)
+            img_b64 = pil_to_base64(Image.fromarray(np.uint8(img)).convert('RGB'))
+            frame_image = ft.Image(src_base64=img_b64, width=160, height=90, fit=ft.ImageFit.CONTAIN)
             rating_text = ft.Text(f"Rating: {score:.2f}", size=15)
             frame_column = ft.Column(
                 controls=[frame_image, rating_text],
@@ -248,7 +245,7 @@ def main(page: ft.Page):
                 border_radius=5,
                 key=f"rated_{idx}"
             )
-            container.on_click = lambda _, file=temp_file, cont=container: select_image(file, cont)
+            container.on_click = lambda _, b64=img_b64, cont=container: select_image_base64(b64, cont)
             rated_frames.append(container)
             rated_row.controls.append(container)
         best_frame_column.controls.append(rated_row)
@@ -336,7 +333,8 @@ def main(page: ft.Page):
 
     def thumbnail_generation(style, model, frame):
         sd_out.controls.clear()
-        pil_frame = Image.open(frame)
+        try: pil_frame = Image.open(frame)
+        except: pil_frame = Image.open(io.BytesIO(base64.b64decode(frame)))
         sd_out.controls.append(ft.Text("Model describing the frame...", size=15))
         page.update()
         frame_prompt = Pipeline.describe_frame(pil_frame, style, model)
@@ -346,6 +344,31 @@ def main(page: ft.Page):
         pil_thumbnail = Image.fromarray(np.uint8(thumbnail)).convert('RGB')
         thumbnail_b64 = pil_to_base64(pil_thumbnail)
         return thumbnail_b64
+
+    def select_image_base64(img_b64, selected_container):
+        page.best_frame = img_b64
+        for cont in rated_frames + uploaded_frames:
+            cont.border = ft.border.all(3, "blue") if cont.key == selected_container.key else ft.border.all(1, "lightgray")
+            cont.update()
+
+        # Check if preview exists; if not, add one; otherwise, update it
+        if not any(isinstance(ctrl, ft.Column) and ctrl.key == "selected_preview" for ctrl in best_frame_column.controls):
+            preview = ft.Column(
+                controls=[
+                    ft.Image(src_base64=img_b64, width=160*3, height=90*3, fit=ft.ImageFit.CONTAIN),
+                    ft.Text("This is your selected frame.", size=20)
+                ],
+                key="selected_preview",
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            )
+            selected_column.controls = [preview]
+        else:
+            for ctrl in best_frame_column.controls:
+                if isinstance(ctrl, ft.Column) and ctrl.key == "selected_preview":
+                    ctrl.controls[0].src_base64 = img_b64
+                    ctrl.controls[0].update()
+                    break
+        page.update()
 
 def pil_to_base64(pil_image, format="PNG"):
     buffer = io.BytesIO()

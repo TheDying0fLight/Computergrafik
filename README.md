@@ -16,7 +16,6 @@ Install dependencies using the `requirements.txt` file:
 python src/main.py
 ```
 
-
 ## Code
 
 ### Pipeline and User Interface
@@ -28,6 +27,10 @@ python src/main.py
 - The `notebooks/` directory contains Jupyter notebooks for dataset structuring, pipeline examples, and fine-tuning Moondream.
 - The `dataset/` directory contains pre-structured datasets (`.pkl` files) and a JSON file (`first.json`) with various information of the used Youtube videos, and a zipped image dataset containing the downloaded  frames from the Youtube videos (`imgs.zip`).
 - The `first/` subdirectory contains the unzipped frames.
+
+
+## Surveys
+We conducted two surveys: (1) regarding the used [Large Language Models](https://www.survio.com/survey/d/O8P0U6C3B5S8X3S7T) and (2) regarding the [User Interface](https://www.survio.com/survey/d/X8W7U9S9H8H4J6W8D). The data and the R evaluation can be found in the `surveys\` folder.
 
 
 ## Resources

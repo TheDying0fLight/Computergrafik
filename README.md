@@ -30,7 +30,7 @@ python src/main.py
 
 
 ## Surveys
-We conducted two surveys: (1) regarding the used [Large Language Models](https://www.survio.com/survey/d/O8P0U6C3B5S8X3S7T) and (2) regarding the [User Interface](https://www.survio.com/survey/d/X8W7U9S9H8H4J6W8D). The data and the R evaluation can be found in the `surveys\` folder.
+We conducted two surveys: (1) regarding the used [Large Language Models](https://www.survio.com/survey/d/O8P0U6C3B5S8X3S7T) and (2) regarding the [User Interface](https://www.survio.com/survey/d/X8W7U9S9H8H4J6W8D). The data and the R evaluation can be found in the `surveys/` folder.
 
 
 ## Resources
